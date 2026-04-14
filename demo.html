@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NoBarricade — Live Demo</title>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,700;9..144,900&family=DM+Sans:wght@300;400;500&family=DM+Serif+Display&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--ink:#0a0f1e;--slate:#374151;--muted:#6b7280;--rule:#e5e7eb;--bg:#f9f8f5;--white:#ffffff;--amber:#c8953a;--ff-display:'Fraunces',serif;--ff-body:'DM Sans',sans-serif;--ff-editorial:'DM Serif Display',serif}
+body{font-family:var(--ff-body);background:var(--bg);color:var(--ink)}
+
+nav{background:var(--white);border-bottom:1px solid var(--rule);padding:0 24px;height:56px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:10}
+.nav-brand{font-family:var(--ff-display);font-weight:900;font-size:22px;letter-spacing:-.5px;color:var(--ink)}
+.nav-brand span{color:var(--amber)}
+.nav-links a{font-size:13px;color:var(--muted);text-decoration:none;margin-left:20px}
+
+.article{max-width:720px;margin:0 auto;padding:64px 24px 120px}
+.article-cat{font-size:11px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:var(--amber);margin-bottom:16px}
+.article h1{font-family:var(--ff-editorial);font-size:clamp(32px,5vw,52px);line-height:1.12;letter-spacing:-.5px;margin-bottom:20px;color:var(--ink)}
+.article-meta{display:flex;align-items:center;gap:16px;font-size:13px;color:var(--muted);margin-bottom:32px;padding-bottom:24px;border-bottom:1px solid var(--rule)}
+.article-avatar{width:36px;height:36px;border-radius:50%;background:#d1d5db;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;color:var(--muted);flex-shrink:0}
+.article-body{font-size:17px;line-height:1.8;color:var(--slate)}
+.article-body p+p{margin-top:24px}
+.article-body h2{font-family:var(--ff-editorial);font-size:28px;margin:40px 0 16px;color:var(--ink)}
+.article-body blockquote{border-left:3px solid var(--amber);padding:4px 0 4px 24px;margin:32px 0;font-style:italic;color:var(--muted);font-size:19px;line-height:1.6}
+.ad-slot{background:#f1f5f9;border:1px dashed #cbd5e1;border-radius:8px;height:90px;display:flex;align-items:center;justify-content:center;margin:32px 0;color:var(--muted);font-size:13px}
+
+.controls{position:fixed;bottom:24px;right:24px;z-index:50;display:flex;flex-direction:column;gap:8px;align-items:flex-end}
+.ctrl-card{background:var(--ink);border-radius:12px;padding:16px 20px;color:#fff;min-width:220px}
+.ctrl-title{font-size:11px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:rgba(255,255,255,.4);margin-bottom:10px}
+.ctrl-stat{font-size:13px;margin-bottom:6px;display:flex;align-items:center;gap:8px}
+.ctrl-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.ctrl-dot.green{background:#22c55e}.ctrl-dot.red{background:#ef4444}.ctrl-dot.amber{background:#f59e0b}
+.ctrl-btn{display:block;width:100%;padding:9px 14px;border-radius:7px;border:1px solid rgba(255,255,255,.15);background:transparent;color:rgba(255,255,255,.8);font-size:12px;font-weight:600;cursor:pointer;margin-top:8px;text-align:left;font-family:var(--ff-body);transition:background .12s}
+.ctrl-btn:hover{background:rgba(255,255,255,.1)}
+@media(max-width:500px){.controls{bottom:12px;right:12px;left:12px;align-items:stretch}.ctrl-card{min-width:unset}}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-brand">The Daily<span>Post</span></div>
+  <div class="nav-links">
+    <a href="#">World</a>
+    <a href="#">Business</a>
+    <a href="#">Technology</a>
+  </div>
+</nav>
+
+<div class="article">
+  <div class="article-cat">Technology · Web Development</div>
+  <h1>The Economics of Online Publishing in an Era of Ad Blockers</h1>
+  <div class="article-meta">
+    <div class="article-avatar">JS</div>
+    <div>
+      <div style="font-weight:600;color:var(--ink)">James Sterling</div>
+      <div>Senior Technology Correspondent</div>
+    </div>
+    <div style="margin-left:auto">Apr 13, 2026 · 8 min read</div>
+  </div>
+
+  <div class="ad-slot">Advertisement</div>
+
+  <div class="article-body">
+    <p>The modern internet operates on an implicit agreement: publishers provide free content, and visitors agree to see advertisements. For decades, this arrangement sustained an entire ecosystem of journalism, entertainment, and open-access information. But the proliferation of ad blocking software — now installed on an estimated 40% of desktop browsers — has strained this relationship to its limits.</p>
+
+    <p>When a reader loads a page with an ad blocker active, the calculus for the publisher changes entirely. Server costs, editorial salaries, infrastructure, and distribution all remain fixed. Revenue does not. The result is a structural deficit that has forced publishers large and small to confront a difficult question: how do you sustain free content when a significant portion of your audience opts out of the funding mechanism?</p>
+
+    <blockquote>"The ad blocker problem is not a technology problem. It is a trust problem — and the solution must address trust, not just detection."</blockquote>
+
+    <h2>The Publisher's Dilemma</h2>
+
+    <p>Several strategies have emerged. Subscription paywalls convert readers into paying customers but typically capture only 1–5% of a publication's audience. Sponsored content blurs the line between editorial and advertising, often at reputational cost. The most pragmatic short-term solution adopted by many publishers is ad blocker detection and content gating.</p>
+
+    <div class="ad-slot">Advertisement</div>
+
+    <h2>Detection Has Become Unavoidable</h2>
+
+    <p>Early ad blocker detection was trivially bypassed — a single script check that users could defeat with a browser console command. Today's implementations are meaningfully more robust, using parallel detection vectors that include DOM mutation observation, network request interception across dozens of ad networks, CSS animation monitoring, and JavaScript environment property inspection.</p>
+
+    <p>For publishers, the goal is not perfect enforcement — no client-side gate is truly impenetrable to a sufficiently motivated technical user — but rather reasonable friction that converts the passive ad blocker user into an engaged one. Research consistently shows that when presented with a clear, respectful gate, the majority of ad blocker users will disable their blocker for the site.</p>
+  </div>
+</div>
+
+<div class="controls">
+  <div class="ctrl-card">
+    <div class="ctrl-title">NoBarricade Demo</div>
+    <div class="ctrl-stat"><span class="ctrl-dot" id="statusDot"></span><span id="statusText">Initializing…</span></div>
+    <div class="ctrl-stat" style="font-size:12px;color:rgba(255,255,255,.4)" id="checksText">Checks run: 0</div>
+    <button class="ctrl-btn" onclick="NoBarricade.forceGate()">⊘ Show Gate (Force)</button>
+    <button class="ctrl-btn" onclick="NoBarricade.releaseGate()">✓ Hide Gate (Force)</button>
+    <button class="ctrl-btn" onclick="NoBarricade.check()">↻ Re-run Detection Now</button>
+    <button class="ctrl-btn" onclick="window.location.href='index.html'">← Back to Docs</button>
+  </div>
+</div>
+
+<script src="nobarricade.js"></script>
+<script>
+var checks = 0;
+
+NoBarricade.init({
+  debug: true,
+  overlay: {
+    brand: 'The Daily Post',
+    title: 'Ad Blocker Detected',
+    message: 'The Daily Post relies on advertising to fund independent journalism. Please disable your ad blocker to continue reading.',
+    accentColor: '#c8953a',
+  },
+  onDetected: function () {
+    document.getElementById('statusDot').className = 'ctrl-dot red';
+    document.getElementById('statusText').textContent = 'Ad blocker DETECTED';
+    checks++;
+    document.getElementById('checksText').textContent = 'Checks run: ' + checks;
+  },
+  onCleared: function () {
+    document.getElementById('statusDot').className = 'ctrl-dot green';
+    document.getElementById('statusText').textContent = 'No ad blocker — page open';
+    checks++;
+    document.getElementById('checksText').textContent = 'Checks run: ' + checks;
+  },
+});
+
+NoBarricade.detect(function (found) {
+  var dot = document.getElementById('statusDot');
+  var txt = document.getElementById('statusText');
+  dot.className = found ? 'ctrl-dot red' : 'ctrl-dot green';
+  txt.textContent = found ? 'Ad blocker DETECTED' : 'No ad blocker detected';
+  checks++;
+  document.getElementById('checksText').textContent = 'Checks run: ' + checks;
+});
+
+setInterval(function () {
+  checks++;
+  document.getElementById('checksText').textContent = 'Checks run: ' + checks;
+}, 3000);
+</script>
+</body>
+</html>

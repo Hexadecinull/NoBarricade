@@ -1,0 +1,35 @@
+# Auto-detect text files and normalize line endings to LF
+* text=auto eol=lf
+
+# Source files
+*.js      text eol=lf
+*.html    text eol=lf
+*.css     text eol=lf
+*.json    text eol=lf
+*.md      text eol=lf
+*.yml     text eol=lf
+*.yaml    text eol=lf
+*.txt     text eol=lf
+*.map     text eol=lf
+
+# GitHub linguist overrides — don't count minified/generated files as code
+*.min.js  linguist-generated=true
+*.min.js  linguist-vendored=true
+*.map     linguist-generated=true
+
+# Binary files — no line ending conversion
+*.png     binary
+*.jpg     binary
+*.jpeg    binary
+*.gif     binary
+*.ico     binary
+*.svg     binary
+*.woff    binary
+*.woff2   binary
+
+# Exports for archive (npm pack, git archive)
+.gitattributes  export-ignore
+.gitignore      export-ignore
+.github/        export-ignore
+_config.yml     export-ignore
+demo.html       export-ignore

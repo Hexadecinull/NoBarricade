@@ -1,0 +1,6 @@
+theme: null
+plugins: []
+exclude:
+  - package.json
+  - "*.min.js"
+  - .github/

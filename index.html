@@ -1,0 +1,688 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="NoBarricade — Ad blocker detection and page gating library for website developers. Protect your ad revenue in one script tag.">
+<title>NoBarricade — Protect Your Ad Revenue</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700;9..144,900&family=DM+Sans:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --ink:#0a0f1e;--ink2:#1e2740;--slate:#374151;--muted:#6b7280;--dim:#9ca3af;
+  --rule:#e5e7eb;--bg:#f9f8f5;--white:#ffffff;
+  --amber:#c8953a;--amber-lt:#fef3c7;--amber-bd:#fde68a;
+  --green:#16a34a;
+  --ff-display:'Fraunces',serif;--ff-body:'DM Sans',sans-serif;--ff-mono:'JetBrains Mono',monospace;
+}
+html{scroll-behavior:smooth}
+body{font-family:var(--ff-body);background:var(--bg);color:var(--ink);overflow-x:hidden}
+::selection{background:var(--amber-lt);color:var(--amber)}
+::-webkit-scrollbar{width:5px}
+::-webkit-scrollbar-track{background:var(--bg)}
+::-webkit-scrollbar-thumb{background:var(--rule);border-radius:3px}
+
+nav{position:sticky;top:0;z-index:90;background:rgba(249,248,245,.92);backdrop-filter:blur(14px);border-bottom:1px solid var(--rule)}
+.nav-inner{display:flex;align-items:center;justify-content:space-between;max-width:1100px;margin:0 auto;padding:0 28px;height:60px}
+.nav-brand{display:flex;align-items:center;gap:10px;text-decoration:none;color:var(--ink);font-weight:700;font-size:17px;letter-spacing:-.3px}
+.nav-icon{width:32px;height:32px;background:var(--ink);border-radius:8px;display:grid;place-items:center;flex-shrink:0}
+.nav-links{display:flex;align-items:center;gap:4px}
+.nav-a{color:var(--muted);font-size:14px;font-weight:500;text-decoration:none;padding:6px 12px;border-radius:6px;transition:color .12s,background .12s}
+.nav-a:hover{color:var(--ink);background:#f0ede8}
+.nav-gh{display:flex;align-items:center;gap:6px;padding:7px 14px;border-radius:6px;background:var(--ink);color:#fff;font-size:13px;font-weight:600;text-decoration:none;transition:opacity .12s}
+.nav-gh:hover{opacity:.82}
+@media(max-width:640px){.nav-links .nav-a{display:none}}
+
+.hero{border-bottom:1px solid var(--rule);padding:96px 28px 80px}
+.hero-inner{max-width:1100px;margin:0 auto}
+.eyebrow{display:inline-flex;align-items:center;gap:8px;font-size:12px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--amber);margin-bottom:28px}
+.eyebrow-line{width:28px;height:2px;background:var(--amber);border-radius:1px}
+.hero h1{font-family:var(--ff-display);font-weight:900;font-size:clamp(52px,8vw,96px);line-height:.95;letter-spacing:-3px;color:var(--ink);max-width:840px;margin-bottom:28px}
+.hero h1 em{font-style:normal;color:var(--amber)}
+.hero-sub{font-size:19px;font-weight:300;color:var(--slate);max-width:560px;line-height:1.75;margin-bottom:44px}
+.cta-row{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+.btn-primary{display:inline-flex;align-items:center;gap:8px;padding:14px 26px;border-radius:8px;background:var(--ink);color:#fff;font-weight:600;font-size:15px;text-decoration:none;transition:opacity .14s}
+.btn-primary:hover{opacity:.82}
+.btn-outline{display:inline-flex;align-items:center;gap:8px;padding:13px 24px;border-radius:8px;border:1.5px solid var(--rule);color:var(--slate);font-weight:600;font-size:15px;text-decoration:none;background:var(--white);transition:border-color .14s,color .14s}
+.btn-outline:hover{border-color:var(--ink);color:var(--ink)}
+.hero-metrics{display:grid;grid-template-columns:repeat(4,auto);gap:0;margin-top:72px;border:1px solid var(--rule);border-radius:12px;overflow:hidden;background:var(--white);max-width:680px}
+.metric{padding:22px 24px;border-right:1px solid var(--rule)}
+.metric:last-child{border-right:none}
+.metric-num{font-family:var(--ff-display);font-weight:700;font-size:30px;letter-spacing:-1px;color:var(--ink)}
+.metric-label{font-size:12px;color:var(--muted);margin-top:2px;font-weight:500}
+@media(max-width:700px){.hero-metrics{grid-template-columns:repeat(2,1fr)}.metric:nth-child(2){border-right:none}.metric:nth-child(3){border-top:1px solid var(--rule)}}
+
+.section{padding:88px 28px}
+.section-inner{max-width:1100px;margin:0 auto}
+.section-eyebrow{font-size:11px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:var(--amber);margin-bottom:10px}
+.section-title{font-family:var(--ff-display);font-weight:700;font-size:clamp(30px,4vw,46px);letter-spacing:-1.5px;line-height:1.1;color:var(--ink);margin-bottom:16px}
+.section-desc{font-size:16px;color:var(--muted);line-height:1.75;max-width:520px}
+.rule{height:1px;background:var(--rule);margin:0}
+
+.how-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:1px;background:var(--rule);border:1px solid var(--rule);border-radius:12px;overflow:hidden;margin-top:52px}
+@media(max-width:768px){.how-grid{grid-template-columns:1fr}}
+.how-item{background:var(--white);padding:36px 30px}
+.how-num{font-family:var(--ff-mono);font-size:11px;font-weight:500;color:var(--amber);letter-spacing:.5px;margin-bottom:16px;display:block}
+.how-icon{width:44px;height:44px;border-radius:10px;background:#f0ede8;display:grid;place-items:center;margin-bottom:18px}
+.how-title{font-weight:700;font-size:17px;margin-bottom:8px;color:var(--ink)}
+.how-desc{font-size:14px;color:var(--muted);line-height:1.7}
+
+.code-wrap{background:var(--ink);border-radius:14px;overflow:hidden;margin-top:48px}
+.code-bar{display:flex;align-items:center;gap:0;border-bottom:1px solid rgba(255,255,255,.08);overflow-x:auto}
+.code-tab{padding:12px 20px;font-size:13px;font-weight:500;color:rgba(255,255,255,.4);background:transparent;border:none;cursor:pointer;font-family:var(--ff-body);border-right:1px solid rgba(255,255,255,.08);transition:color .12s,background .12s;white-space:nowrap}
+.code-tab.on{color:#fff;background:rgba(255,255,255,.06)}
+.code-tab:last-child{border-right:none}
+.code-body{padding:32px 36px;overflow-x:auto}
+@media(max-width:560px){.code-body{padding:22px 18px}}
+.code-body pre{font-family:var(--ff-mono);font-size:13.5px;line-height:1.8;color:rgba(255,255,255,.85);margin:0}
+.code-panel{display:none}.code-panel.on{display:block}
+.kw{color:#f59e0b}.fn{color:#67e8f9}.str{color:#86efac}
+.cm{color:#4b5563;font-style:italic}.prop{color:#e2e8f0}
+.bool{color:#fb7185}.num{color:#fb923c}
+
+.tbl-wrap{border:1px solid var(--rule);border-radius:12px;overflow:hidden;margin-top:48px;background:var(--white)}
+table{width:100%;border-collapse:collapse}
+th{text-align:left;padding:12px 18px;font-size:11px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--muted);background:#f9fafb;border-bottom:1px solid var(--rule)}
+td{padding:16px 18px;border-bottom:1px solid var(--rule);font-size:14px;vertical-align:top;line-height:1.6}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:#fafafa}
+.td-method{font-family:var(--ff-mono);font-size:13px;color:var(--amber);font-weight:500}
+.td-type{font-family:var(--ff-mono);font-size:12px;color:var(--muted)}
+.td-desc{color:var(--slate)}
+.td-ret{font-family:var(--ff-mono);font-size:12px;color:var(--green)}
+.tag{display:inline;padding:1px 7px;border-radius:4px;background:#f0ede8;font-family:var(--ff-mono);font-size:12px;color:var(--slate)}
+@media(max-width:700px){.td-type,.td-ret{display:none}th:nth-child(2),th:nth-child(3),td:nth-child(2),td:nth-child(3){display:none}}
+
+.feat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--rule);border:1px solid var(--rule);border-radius:12px;overflow:hidden;margin-top:52px}
+@media(max-width:900px){.feat-grid{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:560px){.feat-grid{grid-template-columns:1fr}}
+.feat{background:var(--white);padding:34px 28px}
+.feat-label{font-size:11px;font-weight:700;letter-spacing:.7px;text-transform:uppercase;color:var(--amber);margin-bottom:10px}
+.feat h3{font-weight:700;font-size:16px;margin-bottom:8px;color:var(--ink)}
+.feat p{font-size:14px;color:var(--muted);line-height:1.65}
+
+.demo-strip{background:var(--ink);padding:88px 28px}
+.demo-inner{max-width:1100px;margin:0 auto}
+.demo-strip .section-title{color:#fff}
+.demo-strip .section-desc{color:rgba(255,255,255,.5)}
+.demo-strip .section-eyebrow{color:var(--amber)}
+.demo-preview{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);border-radius:14px;overflow:hidden;margin-top:48px}
+.demo-preview-bar{display:flex;align-items:center;gap:8px;padding:14px 20px;border-bottom:1px solid rgba(255,255,255,.08)}
+.demo-preview-dot{width:10px;height:10px;border-radius:50%}
+.demo-url{font-family:var(--ff-mono);font-size:12px;color:rgba(255,255,255,.35);margin-left:8px}
+.demo-preview-body{padding:40px;display:flex;flex-direction:column;gap:12px}
+.demo-line{height:16px;border-radius:4px;background:rgba(255,255,255,.07)}
+.demo-line.w-full{width:100%}.demo-line.w-3q{width:75%}.demo-line.w-half{width:52%}.demo-line.w-5q{width:60%}
+.demo-blur-wrap{position:relative;border-radius:12px;overflow:hidden}
+.demo-blur-wrap .demo-preview-body{filter:blur(5px);user-select:none;pointer-events:none}
+.demo-gate{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(7,10,22,.92);backdrop-filter:blur(4px)}
+.demo-gate-card{background:#fff;border-radius:14px;padding:40px 36px;max-width:400px;width:100%;text-align:center}
+@media(max-width:500px){.demo-gate-card{padding:28px 20px}}
+.dg-badge{display:inline-flex;align-items:center;gap:6px;padding:4px 12px;background:#fef3c7;border:1px solid #fcd34d;border-radius:99px;font-size:10px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:#92400e;margin-bottom:18px}
+.dg-dot{width:6px;height:6px;border-radius:50%;background:#d97706;animation:dp 1.6s ease infinite}
+@keyframes dp{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.3;transform:scale(.6)}}
+.dg-title{font-weight:800;font-size:20px;color:#0a0f1e;margin-bottom:10px;letter-spacing:-.4px}
+.dg-msg{font-size:13px;color:#6b7280;line-height:1.6;margin-bottom:20px}
+.dg-btn{display:block;width:100%;padding:13px;border-radius:8px;background:var(--amber);color:#fff;font-weight:700;font-size:13px;border:none;cursor:default}
+.dg-foot{font-size:11px;color:#9ca3af;margin-top:14px}
+
+.install-box{display:flex;align-items:center;gap:14px;background:var(--white);border:1.5px solid var(--rule);border-radius:10px;padding:16px 20px;margin:32px 0}
+.install-pre{font-family:var(--ff-mono);font-size:13.5px;color:var(--ink);flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.copy-btn{padding:7px 14px;border-radius:6px;background:var(--ink);color:#fff;font-size:12px;font-weight:600;border:none;cursor:pointer;white-space:nowrap;transition:opacity .12s;font-family:var(--ff-body)}
+.copy-btn:hover{opacity:.82}
+.copy-btn.ok{background:var(--green)}
+
+.browser-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:16px;margin-top:40px}
+.browser-grid.row2{margin-top:16px}
+@media(max-width:700px){.browser-grid{grid-template-columns:repeat(3,1fr)}.browser-grid.row2{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:440px){.browser-grid,.browser-grid.row2{grid-template-columns:repeat(2,1fr)}}
+.browser-item{background:var(--white);border:1px solid var(--rule);border-radius:10px;padding:20px 12px;text-align:center}
+.browser-icon{width:36px;height:36px;margin:0 auto 10px;display:flex;align-items:center;justify-content:center}
+.browser-name{font-size:13px;font-weight:600;color:var(--ink);margin-bottom:3px}
+.browser-ver{font-size:11px;color:var(--muted)}
+.browser-compat{font-size:11px;font-weight:700;color:var(--green);margin-top:2px}
+
+.detect-table-wrap{border:1px solid var(--rule);border-radius:12px;overflow:hidden;margin-top:40px;background:var(--white)}
+.dt-label{font-size:11px;font-weight:700;letter-spacing:.7px;text-transform:uppercase;margin-bottom:4px;color:var(--amber)}
+.dt-name{font-weight:600;font-size:14px;color:var(--ink)}
+.dt-desc{font-size:13px;color:var(--muted);margin-top:2px}
+.dt-check{font-size:16px;text-align:center}
+
+footer{border-top:1px solid var(--rule);padding:48px 28px}
+.foot-inner{max-width:1100px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px}
+.foot-brand{font-family:var(--ff-display);font-weight:700;font-size:18px;color:var(--ink)}
+.foot-links{display:flex;gap:20px}
+.foot-link{font-size:13px;color:var(--muted);text-decoration:none}
+.foot-link:hover{color:var(--ink)}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-inner">
+    <a href="/" class="nav-brand">
+      <div class="nav-icon">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+          <path d="M10 2L3 5.6V10.4C3 14.2 6.2 17.8 10 19C13.8 17.8 17 14.2 17 10.4V5.6L10 2Z" fill="#c8953a" opacity=".3"/>
+          <path d="M10 3L4 6.3V10.4C4 14 7 17.2 10 18.3C13 17.2 16 14 16 10.4V6.3L10 3Z" stroke="#c8953a" stroke-width="1" fill="none"/>
+          <circle cx="10" cy="10" r="2" fill="#c8953a"/>
+          <line x1="6.5" y1="6.5" x2="13.5" y2="13.5" stroke="white" stroke-width="1.4" stroke-linecap="round"/>
+        </svg>
+      </div>
+      NoBarricade
+    </a>
+    <div class="nav-links">
+      <a href="#how" class="nav-a">How It Works</a>
+      <a href="#install" class="nav-a">Install</a>
+      <a href="#api" class="nav-a">API</a>
+      <a href="#browsers" class="nav-a">Browsers</a>
+      <a href="https://github.com/hexadecinull/nobarricade" class="nav-gh" target="_blank" rel="noopener">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+        GitHub
+      </a>
+    </div>
+  </div>
+</nav>
+
+<section class="hero">
+  <div class="hero-inner">
+    <div class="eyebrow"><span class="eyebrow-line"></span>Open Source · LGPL-3.0 · Zero Dependencies</div>
+    <h1>Protect your<br>ad revenue.<br><em>Effortlessly.</em></h1>
+    <p class="hero-sub">NoBarricade detects ad blockers across all major browsers and hard-gates your page until the visitor disables theirs — one script tag, no backend, no configuration required.</p>
+    <div class="cta-row">
+      <a href="#install" class="btn-primary">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+        Get Started Free
+      </a>
+      <a href="demo.html" class="btn-outline" target="_blank">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8"/></svg>
+        Live Demo
+      </a>
+    </div>
+    <div class="hero-metrics">
+      <div class="metric">
+        <div class="metric-num">6</div>
+        <div class="metric-label">Detection methods</div>
+      </div>
+      <div class="metric">
+        <div class="metric-num">30+</div>
+        <div class="metric-label">Ad network probes</div>
+      </div>
+      <div class="metric">
+        <div class="metric-num">~9KB</div>
+        <div class="metric-label">Unminified size</div>
+      </div>
+      <div class="metric">
+        <div class="metric-num">0</div>
+        <div class="metric-label">Dependencies</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="rule"></div>
+
+<section class="section" id="how">
+  <div class="section-inner">
+    <div class="section-eyebrow">Detection Architecture</div>
+    <div class="section-title">Six parallel methods.<br>Any hit gates the page.</div>
+    <p class="section-desc">Methods run concurrently with early-exit logic — the gate fires the moment the sensitivity threshold is crossed, without waiting for slower methods to finish.</p>
+    <div class="how-grid">
+      <div class="how-item">
+        <span class="how-num">01 — DOM BAIT</span>
+        <div class="how-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#c8953a" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M9 9h6M9 12h6M9 15h4"/></svg>
+        </div>
+        <div class="how-title">Bait Element</div>
+        <p class="how-desc">A hidden div carrying 35+ ad-targeting class names is injected. uBlock Origin, Adblock Plus, and AdGuard all apply <code>display:none</code> to it via their cosmetic filter rules. The resulting zero dimensions are measured.</p>
+      </div>
+      <div class="how-item">
+        <span class="how-num">02 — NETWORK PROBE</span>
+        <div class="how-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#c8953a" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 010 20M12 2a15.3 15.3 0 000 20"/></svg>
+        </div>
+        <div class="how-title">Multi-Network Fetch</div>
+        <p class="how-desc">Four random URLs are sampled from a pool of 30+ ad network endpoints — Google, AppNexus, Criteo, Taboola, Amazon Ads, Rubicon, and more. All four must succeed for the user to be cleared. Catches DNS-level blockers (Pi-hole, NextDNS, AdGuard Home).</p>
+      </div>
+      <div class="how-item">
+        <span class="how-num">03 — SCRIPT LOAD</span>
+        <div class="how-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#c8953a" stroke-width="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+        </div>
+        <div class="how-title">Script Tag Test</div>
+        <p class="how-desc">Two script elements pointing to ad network JS files are injected. Ad blockers intercept them at the network level and fire <code>onerror</code>, which NoBarricade captures. Both must succeed to clear.</p>
+      </div>
+    </div>
+    <div class="how-grid" style="margin-top:1px;border-top:none;border-radius:0 0 12px 12px">
+      <div class="how-item">
+        <span class="how-num">04 — CSS ANIMATION</span>
+        <div class="how-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#c8953a" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        </div>
+        <div class="how-title">CSS Cosmetic Filter Detection</div>
+        <p class="how-desc">A CSS animation is applied to a bait element. Ad blockers that apply <code>display:none</code> via cosmetic filters prevent the animation from starting. No <code>animationstart</code> event within the timeout window = blocked. Catches Brave Shields and AdGuard cosmetic filtering.</p>
+      </div>
+      <div class="how-item">
+        <span class="how-num">05 — WINDOW PROPERTIES</span>
+        <div class="how-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#c8953a" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+        </div>
+        <div class="how-title">Global Property Check</div>
+        <p class="how-desc">Checks window globals from multiple ad platforms: Google's <code>google_ad_status</code> and <code>googletag</code>, AppNexus's <code>apntag</code>, Taboola's <code>_taboola</code>, and Criteo's <code>criteo_q</code>. Effective when those ad scripts were expected to load.</p>
+      </div>
+      <div class="how-item">
+        <span class="how-num">06 — BRAVE API</span>
+        <div class="how-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#c8953a" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        </div>
+        <div class="how-title">Brave Shields Detection</div>
+        <p class="how-desc">Brave exposes <code>navigator.brave.isBrave()</code> — a Promise that resolves to <code>true</code> in Brave browser with Shields active. Enables direct, reliable detection of Brave's built-in ad blocker without relying on network probes. Opt-in via <code>methods: ['brave']</code>.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="rule"></div>
+
+<section class="section" id="install">
+  <div class="section-inner">
+    <div class="section-eyebrow">Installation</div>
+    <div class="section-title">One line. Works everywhere.</div>
+    <p class="section-desc">No npm, no build step, no server configuration. Just a script tag before your closing <code>&lt;/body&gt;</code>.</p>
+
+    <div class="install-box" style="margin-top:40px">
+      <code class="install-pre">&lt;script src="https://cdn.jsdelivr.net/gh/hexadecinull/nobarricade@latest/nobarricade.js"&gt;&lt;/script&gt;</code>
+      <button class="copy-btn" id="copyBtn" onclick="doCopy()">Copy</button>
+    </div>
+
+    <div class="code-wrap">
+      <div class="code-bar">
+        <button class="code-tab on" onclick="tab(0)">Minimal</button>
+        <button class="code-tab" onclick="tab(1)">Full Config</button>
+        <button class="code-tab" onclick="tab(2)">Custom Overlay</button>
+        <button class="code-tab" onclick="tab(3)">Events</button>
+        <button class="code-tab" onclick="tab(4)">React / Next.js</button>
+      </div>
+      <div class="code-body">
+        <div class="code-panel on" id="cp0"><pre><span class="fn">NoBarricade</span>.<span class="fn">init</span>();</pre></div>
+
+        <div class="code-panel" id="cp1"><pre><span class="fn">NoBarricade</span>.<span class="fn">init</span>({
+  <span class="prop">methods</span>: [<span class="str">'bait'</span>, <span class="str">'fetch'</span>, <span class="str">'script'</span>, <span class="str">'css'</span>, <span class="str">'property'</span>],
+  <span class="prop">sensitivity</span>:       <span class="num">1</span>,
+  <span class="prop">checkInterval</span>:    <span class="num">3000</span>,
+  <span class="prop">detectionTimeout</span>: <span class="num">850</span>,
+
+  <span class="prop">protect</span>: {
+    <span class="prop">rejectContextMenu</span>:       <span class="bool">true</span>,
+    <span class="prop">rejectKeyboardShortcuts</span>: <span class="bool">true</span>,
+    <span class="prop">lockScroll</span>:              <span class="bool">true</span>,
+    <span class="prop">watchDevTools</span>:           <span class="bool">true</span>,
+    <span class="prop">watchInterval</span>:           <span class="num">750</span>,
+  },
+
+  <span class="prop">debug</span>: <span class="bool">false</span>,
+});</pre></div>
+
+        <div class="code-panel" id="cp2"><pre><span class="fn">NoBarricade</span>.<span class="fn">init</span>({
+  <span class="prop">overlay</span>: {
+    <span class="prop">title</span>:       <span class="str">'Please Disable Your Ad Blocker'</span>,
+    <span class="prop">message</span>:     <span class="str">'Advertising keeps this site free. Disable your ad blocker to continue.'</span>,
+    <span class="prop">buttonText</span>:  <span class="str">'I\'ve Disabled It — Show Me The Content'</span>,
+    <span class="prop">accentColor</span>: <span class="str">'#e63946'</span>,
+    <span class="prop">brand</span>:       <span class="str">'The Daily Post'</span>,
+    <span class="prop">logo</span>:        <span class="str">'/assets/logo.svg'</span>,
+    <span class="prop">showSteps</span>:   <span class="bool">true</span>,
+    <span class="prop">steps</span>: [
+      <span class="str">'Click the ad blocker icon in your browser toolbar.'</span>,
+      <span class="str">'Select "Pause on this site" or "Disable".'</span>,
+      <span class="str">'Refresh or click the button below.'</span>,
+    ],
+  },
+});</pre></div>
+
+        <div class="code-panel" id="cp3"><pre><span class="fn">NoBarricade</span>.<span class="fn">init</span>({
+  <span class="prop">onDetected</span>: <span class="kw">function</span> () {
+    analytics.<span class="fn">track</span>(<span class="str">'adblock_detected'</span>);
+  },
+  <span class="prop">onCleared</span>: <span class="kw">function</span> () {
+    analytics.<span class="fn">track</span>(<span class="str">'adblock_cleared'</span>);
+  },
+});</pre></div>
+
+        <div class="code-panel" id="cp4"><pre><span class="kw">import</span> { <span class="fn">useEffect</span> } <span class="kw">from</span> <span class="str">'react'</span>;
+
+<span class="kw">export default function</span> <span class="fn">Layout</span>({ children }) {
+  <span class="fn">useEffect</span>(<span class="kw">function</span> () {
+    <span class="kw">const</span> <span class="prop">nb</span> = <span class="fn">require</span>(<span class="str">'nobarricade'</span>);
+    nb.<span class="fn">init</span>({ <span class="prop">overlay</span>: { <span class="prop">brand</span>: <span class="str">'My Site'</span> } });
+    <span class="kw">return function</span> () { nb.<span class="fn">destroy</span>(); };
+  }, []);
+  <span class="kw">return</span> children;
+}</pre></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="rule"></div>
+
+<section class="demo-strip" id="demo">
+  <div class="demo-inner">
+    <div class="section-eyebrow">Live Preview</div>
+    <div class="section-title">What your visitors see.</div>
+    <p class="section-desc">The gate renders over your content and cannot be dismissed until the ad blocker is disabled and re-verified.</p>
+    <div class="demo-preview">
+      <div class="demo-preview-bar">
+        <div class="demo-preview-dot" style="background:#ef4444"></div>
+        <div class="demo-preview-dot" style="background:#f59e0b"></div>
+        <div class="demo-preview-dot" style="background:#22c55e"></div>
+        <div class="demo-url">yourwebsite.com/article</div>
+      </div>
+      <div class="demo-blur-wrap">
+        <div class="demo-preview-body">
+          <div class="demo-line w-3q"></div>
+          <div class="demo-line w-full"></div>
+          <div class="demo-line w-5q"></div>
+          <div class="demo-line w-half"></div>
+          <div class="demo-line w-full"></div>
+          <div class="demo-line w-3q"></div>
+          <div class="demo-line w-5q"></div>
+          <div class="demo-line w-full"></div>
+          <div class="demo-line w-half"></div>
+        </div>
+        <div class="demo-gate">
+          <div class="demo-gate-card">
+            <svg width="52" height="52" viewBox="0 0 60 60" fill="none" style="margin:0 auto 18px;display:block">
+              <rect width="60" height="60" rx="14" fill="#0a0f1e"/>
+              <path d="M30 11L13 19.4V30C13 39.5 20.7 48.3 30 51C39.3 48.3 47 39.5 47 30V19.4L30 11Z" fill="#c8953a" opacity=".2"/>
+              <path d="M30 13.5L15 21.2V30C15 38.8 22 47.1 30 49.5C38 47.1 45 38.8 45 30V21.2L30 13.5Z" stroke="#c8953a" stroke-width="1.5" fill="none"/>
+              <circle cx="30" cy="30" r="5.5" fill="#c8953a"/>
+              <line x1="22" y1="22" x2="38" y2="38" stroke="#e53e3e" stroke-width="2" stroke-linecap="round"/>
+              <line x1="38" y1="22" x2="22" y2="38" stroke="#e53e3e" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+            <div class="dg-badge"><span class="dg-dot"></span>Ad Blocker Detected</div>
+            <div class="dg-title">Ad Blocker Detected</div>
+            <div class="dg-msg">This website relies on advertising to keep running. Please disable your ad blocker to continue reading.</div>
+            <button class="dg-btn">I've Disabled My Ad Blocker — Continue</button>
+            <p class="dg-foot">Protected by NoBarricade</p>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div style="margin-top:24px;text-align:center">
+      <a href="demo.html" class="btn-primary" target="_blank">Open Interactive Demo →</a>
+    </div>
+  </div>
+</section>
+
+<div class="rule"></div>
+
+<section class="section" id="api">
+  <div class="section-inner">
+    <div class="section-eyebrow">API Reference</div>
+    <div class="section-title">Full public surface.</div>
+    <p class="section-desc">All methods except <span class="tag">detect()</span> return <span class="tag">NoBarricade</span> for chaining.</p>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Method</th><th>Parameters</th><th>Returns</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="td-method">.init(config?)</td><td class="td-type">Object</td><td class="td-ret">NoBarricade</td><td class="td-desc">Initialize. Runs first detection pass and starts the polling interval. Idempotent — call <span class="tag">destroy()</span> first to reinitialize with new config.</td></tr>
+          <tr><td class="td-method">.destroy()</td><td class="td-type">—</td><td class="td-ret">NoBarricade</td><td class="td-desc">Stop all intervals, disconnect the observer, remove the overlay, and restore the page to its pre-init state.</td></tr>
+          <tr><td class="td-method">.detect(cb)</td><td class="td-type">Function</td><td class="td-ret">void</td><td class="td-desc">Run all configured detection methods once and call <span class="tag">cb(detected: boolean)</span>. Does not modify gate state — read-only probe.</td></tr>
+          <tr><td class="td-method">.check()</td><td class="td-type">—</td><td class="td-ret">NoBarricade</td><td class="td-desc">Trigger a single detection pass immediately, updating gate state if the result changes.</td></tr>
+          <tr><td class="td-method">.isGated()</td><td class="td-type">—</td><td class="td-ret">boolean</td><td class="td-desc">Returns <span class="tag">true</span> if the gate overlay is currently active.</td></tr>
+          <tr><td class="td-method">.isInitialized()</td><td class="td-type">—</td><td class="td-ret">boolean</td><td class="td-desc">Returns <span class="tag">true</span> after <span class="tag">init()</span> has been called and before <span class="tag">destroy()</span>.</td></tr>
+          <tr><td class="td-method">.forceGate()</td><td class="td-type">—</td><td class="td-ret">NoBarricade</td><td class="td-desc">Show the gate overlay regardless of detection result. Useful for testing overlay appearance.</td></tr>
+          <tr><td class="td-method">.releaseGate()</td><td class="td-type">—</td><td class="td-ret">NoBarricade</td><td class="td-desc">Hide the gate overlay regardless of detection result. Useful for testing.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="section-title" style="margin-top:64px;font-size:32px">Configuration</div>
+    <div class="tbl-wrap" style="margin-top:28px">
+      <table>
+        <thead><tr><th>Option</th><th>Type</th><th>Default</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="td-method">methods</td><td class="td-type">string[]</td><td class="td-type">5 methods</td><td class="td-desc">Detection methods to run: <span class="tag">bait</span>, <span class="tag">fetch</span>, <span class="tag">script</span>, <span class="tag">css</span>, <span class="tag">property</span>, <span class="tag">brave</span>. <span class="tag">brave</span> is opt-in only.</td></tr>
+          <tr><td class="td-method">sensitivity</td><td class="td-type">number</td><td class="td-type">1</td><td class="td-desc">Minimum positive detections before gating. <span class="tag">1</span> = first hit triggers. Increase to reduce false positives on unusual network configs.</td></tr>
+          <tr><td class="td-method">checkInterval</td><td class="td-type">number</td><td class="td-type">3000</td><td class="td-desc">Milliseconds between automatic re-checks. <span class="tag">0</span> = detect once on load only.</td></tr>
+          <tr><td class="td-method">detectionTimeout</td><td class="td-type">number</td><td class="td-type">850</td><td class="td-desc">Bait/CSS element settle time in ms. Increase on very slow connections.</td></tr>
+          <tr><td class="td-method">overlay.title</td><td class="td-type">string</td><td class="td-type">"Ad Blocker Detected"</td><td class="td-desc">Heading on the gate overlay.</td></tr>
+          <tr><td class="td-method">overlay.message</td><td class="td-type">string</td><td class="td-type">—</td><td class="td-desc">Body text beneath the heading.</td></tr>
+          <tr><td class="td-method">overlay.steps</td><td class="td-type">string[]</td><td class="td-type">3 default steps</td><td class="td-desc">Numbered instruction list. Set <span class="tag">showSteps: false</span> to hide.</td></tr>
+          <tr><td class="td-method">overlay.accentColor</td><td class="td-type">string</td><td class="td-type">"#c8953a"</td><td class="td-desc">Button and step number accent color. Accepts any CSS color value.</td></tr>
+          <tr><td class="td-method">overlay.logo</td><td class="td-type">string</td><td class="td-type">null</td><td class="td-desc">URL to your logo image. Replaces the default NoBarricade shield icon.</td></tr>
+          <tr><td class="td-method">overlay.brand</td><td class="td-type">string</td><td class="td-type">"NoBarricade"</td><td class="td-desc">Name shown in the overlay footer attribution line.</td></tr>
+          <tr><td class="td-method">protect.rejectContextMenu</td><td class="td-type">boolean</td><td class="td-type">true</td><td class="td-desc">Blocks right-click while gated.</td></tr>
+          <tr><td class="td-method">protect.rejectKeyboardShortcuts</td><td class="td-type">boolean</td><td class="td-type">true</td><td class="td-desc">Blocks F12, Ctrl+Shift+I/J/K/C/M, Ctrl+U/S/P/A while gated.</td></tr>
+          <tr><td class="td-method">protect.lockScroll</td><td class="td-type">boolean</td><td class="td-type">true</td><td class="td-desc">Sets <span class="tag">overflow:hidden</span> on <span class="tag">html</span> and <span class="tag">body</span> while gated.</td></tr>
+          <tr><td class="td-method">protect.watchDevTools</td><td class="td-type">boolean</td><td class="td-type">true</td><td class="td-desc">Polls window outer/inner dimension difference; re-enforces overlay styles when DevTools is detected open.</td></tr>
+          <tr><td class="td-method">onDetected</td><td class="td-type">Function</td><td class="td-type">null</td><td class="td-desc">Fired when an ad blocker is first detected: <span class="tag">() => void</span>.</td></tr>
+          <tr><td class="td-method">onCleared</td><td class="td-type">Function</td><td class="td-type">null</td><td class="td-desc">Fired when a user passes re-verification after disabling their blocker: <span class="tag">() => void</span>.</td></tr>
+          <tr><td class="td-method">debug</td><td class="td-type">boolean</td><td class="td-type">false</td><td class="td-desc">Logs detection stage results and gate events to the browser console.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<div class="rule"></div>
+
+<section class="section" id="blockers">
+  <div class="section-inner">
+    <div class="section-eyebrow">Ad Blocker Coverage</div>
+    <div class="section-title">Every major blocker detected.</div>
+    <p class="section-desc">Coverage across extension-based, browser-built-in, and network-level ad blockers.</p>
+    <div class="detect-table-wrap">
+      <table>
+        <thead><tr><th>Ad Blocker</th><th>Type</th><th>Detection Methods</th><th>Covered</th></tr></thead>
+        <tbody>
+          <tr><td><div class="dt-name">uBlock Origin</div><div class="dt-desc">Most popular extension. Uses EasyList cosmetic + network rules.</div></td><td class="td-type">Extension</td><td class="td-desc"><span class="tag">bait</span> <span class="tag">fetch</span> <span class="tag">script</span> <span class="tag">css</span></td><td class="dt-check">✓</td></tr>
+          <tr><td><div class="dt-name">Brave Shields</div><div class="dt-desc">Browser-level, 100M+ users. Bypasses extension detection. uBlock Origin filter lists.</div></td><td class="td-type">Browser built-in</td><td class="td-desc"><span class="tag">fetch</span> <span class="tag">script</span> <span class="tag">css</span> <span class="tag">brave</span></td><td class="dt-check">✓</td></tr>
+          <tr><td><div class="dt-name">AdGuard</div><div class="dt-desc">Extension + desktop app + DNS. Cosmetic and network filtering.</div></td><td class="td-type">Extension / App</td><td class="td-desc"><span class="tag">bait</span> <span class="tag">fetch</span> <span class="tag">script</span> <span class="tag">css</span></td><td class="dt-check">✓</td></tr>
+          <tr><td><div class="dt-name">Adblock Plus</div><div class="dt-desc">Classic extension. EasyList-based cosmetic and network blocking.</div></td><td class="td-type">Extension</td><td class="td-desc"><span class="tag">bait</span> <span class="tag">fetch</span> <span class="tag">script</span></td><td class="dt-check">✓</td></tr>
+          <tr><td><div class="dt-name">Pi-hole / AdGuard Home</div><div class="dt-desc">DNS-level sinkhole. No CSS injection — only network requests are blocked.</div></td><td class="td-type">DNS / Network</td><td class="td-desc"><span class="tag">fetch</span> <span class="tag">script</span></td><td class="dt-check">✓</td></tr>
+          <tr><td><div class="dt-name">NextDNS</div><div class="dt-desc">Cloud DNS resolver with ad filter lists. Network-layer blocking.</div></td><td class="td-type">DNS / Network</td><td class="td-desc"><span class="tag">fetch</span> <span class="tag">script</span></td><td class="dt-check">✓</td></tr>
+          <tr><td><div class="dt-name">Opera built-in</div><div class="dt-desc">Adblock Plus-derived. Must be enabled by user. EasyList-based.</div></td><td class="td-type">Browser built-in</td><td class="td-desc"><span class="tag">bait</span> <span class="tag">fetch</span> <span class="tag">script</span> <span class="tag">css</span></td><td class="dt-check">✓</td></tr>
+          <tr><td><div class="dt-name">Firefox ETP (Strict)</div><div class="dt-desc">Firefox Enhanced Tracking Protection in Strict mode blocks known ad domains.</div></td><td class="td-type">Browser built-in</td><td class="td-desc"><span class="tag">fetch</span> <span class="tag">script</span></td><td class="dt-check">✓</td></tr>
+          <tr><td><div class="dt-name">Samsung Internet built-in</div><div class="dt-desc">Content blockers via Samsung's extension ecosystem (AdGuard, uBlock).</div></td><td class="td-type">Browser built-in</td><td class="td-desc"><span class="tag">bait</span> <span class="tag">fetch</span> <span class="tag">script</span> <span class="tag">css</span></td><td class="dt-check">✓</td></tr>
+          <tr><td><div class="dt-name">DuckDuckGo Browser</div><div class="dt-desc">Tracker blocking by default via built-in protection list.</div></td><td class="td-type">Browser built-in</td><td class="td-desc"><span class="tag">fetch</span> <span class="tag">script</span></td><td class="dt-check">✓</td></tr>
+          <tr><td><div class="dt-name">uBlock Origin Lite (Chrome MV3)</div><div class="dt-desc">Restricted MV3 version. Cosmetic filtering retained; network blocking limited.</div></td><td class="td-type">Extension</td><td class="td-desc"><span class="tag">bait</span> <span class="tag">css</span></td><td class="dt-check">✓</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<div class="rule"></div>
+
+<section class="section" id="browsers">
+  <div class="section-inner">
+    <div class="section-eyebrow">Browser Compatibility</div>
+    <div class="section-title">Works everywhere<br>your users are.</div>
+
+    <!-- Row 1: Desktop browsers -->
+    <div class="browser-grid">
+
+      <!-- ICON: Replace the SVG below with the Chrome logo (e.g., <img src="chrome.svg">) -->
+      <div class="browser-item">
+        <div class="browser-icon">
+          <svg width="36" height="36" viewBox="0 0 36 36" fill="none"><circle cx="18" cy="18" r="17" fill="#4285F4"/><circle cx="18" cy="18" r="8" fill="white"/><circle cx="18" cy="18" r="5" fill="#4285F4"/></svg>
+        </div>
+        <div class="browser-name">Chrome</div>
+        <div class="browser-ver">66+</div>
+        <div class="browser-compat">✓ Supported</div>
+      </div>
+
+      <!-- ICON: Replace the SVG below with the Firefox logo -->
+      <div class="browser-item">
+        <div class="browser-icon">
+          <svg width="36" height="36" viewBox="0 0 36 36" fill="none"><circle cx="18" cy="18" r="17" fill="#FF7139"/><circle cx="18" cy="18" r="9" fill="#FFDE3D"/><circle cx="18" cy="18" r="5.5" fill="#FF7139"/></svg>
+        </div>
+        <div class="browser-name">Firefox</div>
+        <div class="browser-ver">63+</div>
+        <div class="browser-compat">✓ Supported</div>
+      </div>
+
+      <!-- ICON: Replace the SVG below with the Safari logo -->
+      <div class="browser-item">
+        <div class="browser-icon">
+          <svg width="36" height="36" viewBox="0 0 36 36" fill="none"><circle cx="18" cy="18" r="17" fill="#006EBF"/><circle cx="18" cy="18" r="8" fill="white"/><circle cx="18" cy="18" r="4" fill="#006EBF"/></svg>
+        </div>
+        <div class="browser-name">Safari</div>
+        <div class="browser-ver">12.1+</div>
+        <div class="browser-compat">✓ Supported</div>
+      </div>
+
+      <!-- ICON: Replace the SVG below with the Edge logo -->
+      <div class="browser-item">
+        <div class="browser-icon">
+          <svg width="36" height="36" viewBox="0 0 36 36" fill="none"><circle cx="18" cy="18" r="17" fill="#0078D7"/><text x="18" y="23" text-anchor="middle" font-size="14" fill="white" font-weight="bold" font-family="sans-serif">e</text></svg>
+        </div>
+        <div class="browser-name">Edge</div>
+        <div class="browser-ver">79+</div>
+        <div class="browser-compat">✓ Supported</div>
+      </div>
+
+      <!-- ICON: Replace the SVG below with the Opera logo -->
+      <div class="browser-item">
+        <div class="browser-icon">
+          <svg width="36" height="36" viewBox="0 0 36 36" fill="none"><circle cx="18" cy="18" r="17" fill="#FF1B2D"/><ellipse cx="18" cy="18" rx="7" ry="10" stroke="white" stroke-width="2" fill="none"/></svg>
+        </div>
+        <div class="browser-name">Opera</div>
+        <div class="browser-ver">53+</div>
+        <div class="browser-compat">✓ Supported</div>
+      </div>
+
+    </div>
+
+    <!-- Row 2: Brave, mobile, and alternative browsers -->
+    <div class="browser-grid row2">
+
+      <!-- ICON: Replace the SVG below with the Brave logo -->
+      <div class="browser-item">
+        <div class="browser-icon">
+          <svg width="36" height="36" viewBox="0 0 36 36" fill="none"><circle cx="18" cy="18" r="17" fill="#FB542B"/><path d="M18 6L9 11v8c0 6 4.5 10.5 9 12c4.5-1.5 9-6 9-12v-8L18 6Z" stroke="white" stroke-width="1.5" fill="none"/></svg>
+        </div>
+        <div class="browser-name">Brave</div>
+        <div class="browser-ver">1.0+</div>
+        <div class="browser-compat">✓ Supported</div>
+      </div>
+
+      <!-- ICON: Replace the SVG below with the Firefox for Android logo -->
+      <div class="browser-item">
+        <div class="browser-icon">
+          <svg width="36" height="36" viewBox="0 0 36 36" fill="none"><circle cx="18" cy="18" r="17" fill="#FF7139"/><circle cx="18" cy="18" r="8" fill="#FFDE3D"/><circle cx="18" cy="18" r="4.5" fill="#FF7139"/><rect x="13" y="28" width="10" height="3" rx="1.5" fill="#555"/></svg>
+        </div>
+        <div class="browser-name">Firefox Android</div>
+        <div class="browser-ver">63+</div>
+        <div class="browser-compat">✓ Supported</div>
+      </div>
+
+      <!-- ICON: Replace the SVG below with the Samsung Internet logo -->
+      <div class="browser-item">
+        <div class="browser-icon">
+          <svg width="36" height="36" viewBox="0 0 36 36" fill="none"><circle cx="18" cy="18" r="17" fill="#1428A0"/><text x="18" y="23" text-anchor="middle" font-size="13" fill="white" font-weight="bold" font-family="sans-serif">S</text></svg>
+        </div>
+        <div class="browser-name">Samsung Internet</div>
+        <div class="browser-ver">8+</div>
+        <div class="browser-compat">✓ Supported</div>
+      </div>
+
+      <!-- ICON: Replace the SVG below with the Opera GX / Opera Mini logo -->
+      <div class="browser-item">
+        <div class="browser-icon">
+          <svg width="36" height="36" viewBox="0 0 36 36" fill="none"><circle cx="18" cy="18" r="17" fill="#CC0F16"/><text x="18" y="23" text-anchor="middle" font-size="12" fill="white" font-weight="bold" font-family="sans-serif">GX</text></svg>
+        </div>
+        <div class="browser-name">Opera GX</div>
+        <div class="browser-ver">60+</div>
+        <div class="browser-compat">✓ Supported</div>
+      </div>
+
+      <!-- ICON: Replace the SVG below with the Chrome Android / Mobile Chrome logo -->
+      <div class="browser-item">
+        <div class="browser-icon">
+          <svg width="36" height="36" viewBox="0 0 36 36" fill="none"><circle cx="18" cy="18" r="17" fill="#4285F4"/><circle cx="18" cy="18" r="7" fill="white"/><circle cx="18" cy="18" r="4" fill="#4285F4"/><rect x="13" y="28" width="10" height="3" rx="1.5" fill="#555"/></svg>
+        </div>
+        <div class="browser-name">Chrome Android</div>
+        <div class="browser-ver">66+</div>
+        <div class="browser-compat">✓ Supported</div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<div class="rule"></div>
+
+<section class="section">
+  <div class="section-inner">
+    <div class="section-eyebrow">Capabilities</div>
+    <div class="section-title">Everything you need.<br>Nothing you don't.</div>
+    <div class="feat-grid">
+      <div class="feat">
+        <div class="feat-label">Detection</div>
+        <h3>Six Parallel Methods</h3>
+        <p>DOM bait, multi-network fetch, script load, CSS animation, property check, and Brave API. Early-exit logic fires the gate the moment the threshold is crossed.</p>
+      </div>
+      <div class="feat">
+        <div class="feat-label">30+ Ad Networks</div>
+        <h3>Not Just Google</h3>
+        <p>Fetch probes sample from 30+ endpoints — Google, AppNexus, Criteo, Taboola, Amazon, Rubicon, PubMatic, OpenX, ShareThrough, and more. All must succeed to clear.</p>
+      </div>
+      <div class="feat">
+        <div class="feat-label">DNS-Level Blockers</div>
+        <h3>Pi-hole & NextDNS</h3>
+        <p>DNS-level blockers produce no CSS injection — only network failures. The multi-network fetch and script probes are specifically designed to catch timeout-based blocking.</p>
+      </div>
+      <div class="feat">
+        <div class="feat-label">Gate Integrity</div>
+        <h3>Tamper Resistant</h3>
+        <p>MutationObserver watches for overlay removal or style mutation. Any DevTools-based attempt to delete or hide the overlay is repaired on the next tick with forced inline styles.</p>
+      </div>
+      <div class="feat">
+        <div class="feat-label">Mobile & Desktop</div>
+        <h3>Fully Responsive</h3>
+        <p>The gate card adapts gracefully across all viewport sizes. All detection methods are designed to work identically on desktop, tablet, and mobile browsers.</p>
+      </div>
+      <div class="feat">
+        <div class="feat-label">Verification</div>
+        <h3>Re-verified on Dismiss</h3>
+        <p>When a user clicks "I've disabled it", all detection methods re-run from scratch before the gate is lifted. A shake animation and error message notify them if still blocked.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="foot-inner">
+    <div>
+      <div class="foot-brand">NoBarricade</div>
+      <div style="margin-top:4px;font-size:13px;color:var(--dim)">LGPL-3.0 · Built by <a href="https://github.com/SSMG4" style="color:var(--amber);text-decoration:none">SSMG4</a> / <a href="https://github.com/hexadecinull" style="color:var(--amber);text-decoration:none">Hexadecinull</a></div>
+    </div>
+    <div class="foot-links">
+      <a href="https://github.com/hexadecinull/nobarricade" class="foot-link">GitHub</a>
+      <a href="https://github.com/hexadecinull/nobarricade/issues" class="foot-link">Issues</a>
+      <a href="demo.html" class="foot-link">Demo</a>
+    </div>
+  </div>
+</footer>
+
+<script>
+function tab(n) {
+  document.querySelectorAll('.code-tab').forEach(function (t, i) { t.classList.toggle('on', i === n); });
+  document.querySelectorAll('.code-panel').forEach(function (p, i) { p.classList.toggle('on', i === n); });
+}
+function doCopy() {
+  var text = '<script src="https://cdn.jsdelivr.net/gh/hexadecinull/nobarricade@latest/nobarricade.js"><\/script>';
+  navigator.clipboard.writeText(text).then(function () {
+    var b = document.getElementById('copyBtn');
+    b.textContent = 'Copied!';
+    b.classList.add('ok');
+    setTimeout(function () { b.textContent = 'Copy'; b.classList.remove('ok'); }, 2200);
+  });
+}
+</script>
+</body>
+</html>

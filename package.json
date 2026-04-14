@@ -1,0 +1,40 @@
+{
+  "name": "nobarricade",
+  "version": "2.0.0",
+  "description": "Ad blocker detection and page gating library for website developers.",
+  "main": "nobarricade.js",
+  "module": "nobarricade.js",
+  "browser": "nobarricade.js",
+  "scripts": {
+    "minify": "terser nobarricade.js -o nobarricade.min.js --compress --mangle",
+    "prepublishOnly": "npm run minify"
+  },
+  "keywords": [
+    "adblock",
+    "ad-blocker",
+    "adblock-detection",
+    "ad-blocker-detection",
+    "page-gate",
+    "adblock-wall",
+    "detect-adblock"
+  ],
+  "author": "SSMG4 <https://github.com/SSMG4>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/hexadecinull/nobarricade.git"
+  },
+  "homepage": "https://hexadecinull.github.io/nobarricade",
+  "bugs": {
+    "url": "https://github.com/hexadecinull/nobarricade/issues"
+  },
+  "files": [
+    "nobarricade.js",
+    "nobarricade.min.js",
+    "README.md",
+    "LICENSE"
+  ],
+  "devDependencies": {
+    "terser": "^5.0.0"
+  }
+}
