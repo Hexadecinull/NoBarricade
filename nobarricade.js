@@ -1,8 +1,8 @@
 /*!
- * NoBarricade v2.1.0
+ * NoBarricade v2.2.0
  * Ad blocker detection & page gating library for website developers
  * https://github.com/hexadecinull/nobarricade
- * GNU Lesser General Public License v3.0 (LGPL-3.0)
+ * MIT License
  *
  * Detects ad blockers using multiple parallel methods and hard-gates page
  * content until the visitor disables their ad blocker.
@@ -16,28 +16,55 @@
 })(typeof globalThis !== 'undefined' ? globalThis : typeof window !== 'undefined' ? window : this, function () {
   'use strict';
 
-  const VERSION = '2.1.0';
+  const VERSION = '2.2.0';
 
   const DEFAULTS = {
-    checkInterval: 3000,
-    detectionTimeout: 1100,
-    sensitivity: 2,
-    methods: ['bait', 'fetch', 'script', 'css', 'property'],
+    /*
+     * How often (ms) to re-check while the gate is NOT showing.
+     * Once the gate IS showing, the interval stops — the gate is only
+     * lifted via the verify button. This eliminates all flicker.
+     * Set 0 to check once on load only.
+     */
+    checkInterval: 8000,
+
+    /*
+     * Milliseconds to let the bait element settle in the DOM before
+     * measuring it. Increase on very slow connections.
+     */
+    detectionTimeout: 1200,
+
+    /*
+     * Number of detection methods that must agree "blocked" before gating.
+     * 1 = gate on first positive (recommended — the methods below are reliable).
+     * 2 = require two methods to agree (reduces false positives on unusual networks).
+     */
+    sensitivity: 1,
+
+    /*
+     * Which detection methods to run.
+     * 'bait'     — DOM element with ad class names, measure if hidden
+     * 'fetch'    — HEAD request to a canonical ad URL, check for network error
+     * 'script'   — inject an ad script tag, check onerror
+     * 'css'      — CSS animation bait; fires if ad blocker suppresses it
+     */
+    methods: ['bait', 'fetch', 'script', 'css'],
+
     overlay: {
       title: 'Ad Blocker Detected',
       message: 'This website relies on advertising to keep running. Please disable your ad blocker to continue reading.',
-      buttonText: 'I\'ve Disabled My Ad Blocker — Continue',
+      buttonText: "I've Disabled My Ad Blocker — Continue",
       buttonVerifyText: 'Verifying…',
       steps: [
         'Click the ad blocker icon in your browser toolbar.',
         'Select "Disable" or "Pause" for this site.',
-        'Reload the page or click the button below.',
+        'Click the button below or reload the page.',
       ],
       brand: 'NoBarricade',
       logo: null,
       accentColor: '#c8953a',
       showSteps: true,
     },
+
     protect: {
       rejectContextMenu: true,
       rejectKeyboardShortcuts: true,
@@ -45,89 +72,71 @@
       watchDevTools: true,
       watchInterval: 750,
     },
+
     onDetected: null,
     onCleared: null,
     debug: false,
   };
 
-  const _uid = Math.random().toString(36).slice(2, 10);
-  const OV_ID = '__nb_ov_' + _uid;
-  const ST_ID = '__nb_st_' + _uid;
-  const BT_ID = '__nb_bt_' + _uid;
-  const AN_ID = 'nb_an_' + _uid;
+  /*
+   * Fetch probe targets — ONLY stable, version-independent URLs that every
+   * major ad blocker blocks, and which are reliably reachable without one.
+   * Version-specific paths (e.g. publishertag.prebid.117.js) are excluded
+   * because they 404 on the server side and produce false positives.
+   */
+  const FETCH_URLS = [
+    'https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js',
+    'https://securepubads.g.doubleclick.net/tag/js/gpt.js',
+    'https://c.amazon-adsystem.com/aax2/apstag.js',
+    'https://widgets.outbrain.com/outbrain.js',
+    'https://cdn.taboola.com/libtrc/loader.js',
+    'https://cdn.adnxs.com/ast/ast.js',
+  ];
+
+  /*
+   * A known-good CDN URL that no ad blocker blocks.
+   * Used as a network sanity check — if this fails too, the user is offline
+   * or behind a captive portal, and we should not gate the page.
+   */
+  const SANITY_URL = 'https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js';
+
+  /*
+   * Script probe target — the single most universally blocked ad URL.
+   * No cache-busting params: ad servers reject unknown query strings
+   * and fire onerror even without an ad blocker, causing false positives.
+   */
+  const SCRIPT_URL = 'https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js';
 
   const BAIT_CLASSES = [
-    'pub_300x250', 'pub_300x250m', 'pub_728x90', 'pub_160x600', 'pub_970x250',
-    'text-ad', 'textAd', 'text_ad', 'text_ads', 'text-ads', 'text-ad-links',
+    'pub_300x250', 'pub_300x250m', 'pub_728x90', 'pub_160x600',
+    'text-ad', 'textAd', 'text_ad', 'text_ads', 'text-ads',
     'adsbox', 'adsbygoogle', 'adBanner', 'advert', 'ad-unit', 'ad-slot',
-    'ad-banner', 'ad-container', 'ad-wrapper', 'advertisement', 'banner_ad',
-    'ad_wrapper', 'adContainer', 'adInner', 'banner-ads', 'ad-300x250',
-    'ad-728x90', 'ad-160x600', 'ad-970x90', 'ad-leaderboard', 'ad-box',
-    'ad-label', 'ad-region', 'sponsored-content', 'sponsored_links',
-    'promoted-content', 'native-ad', 'dfp-ad', 'gpt-ad',
+    'ad-banner', 'ad-container', 'ad-wrapper', 'advertisement',
+    'banner_ad', 'adContainer', 'adInner', 'banner-ads',
+    'ad-728x90', 'ad-160x600', 'ad-leaderboard', 'ad-box',
+    'sponsored-content', 'promoted-content', 'native-ad', 'dfp-ad',
   ].join(' ');
 
-  const AD_FETCH_POOL = [
-    'https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js',
-    'https://static.doubleclick.net/instream/ad_status.js',
-    'https://adservice.google.com/adsid/google/ui',
-    'https://securepubads.g.doubleclick.net/tag/js/gpt.js',
-    'https://cdn.adnxs.com/ast/ast.js',
-    'https://secure.adnxs.com/seg?add=1&t=2',
-    'https://static.criteo.net/js/ld/publishertag.prebid.117.js',
-    'https://cas.criteo.com/delivery/lg.php',
-    'https://cdn.taboola.com/libtrc/impl.269-1-RELEASE.js',
-    'https://trc.taboola.com/trc/t/loader.js',
-    'https://widgets.outbrain.com/outbrain.js',
-    'https://c.amazon-adsystem.com/aax2/apstag.js',
-    'https://mads.amazon-adsystem.com/ads/apms.js',
-    'https://fastlane.rubiconproject.com/a/api/fastlane.js',
-    'https://ads.pubmatic.com/AdServer/js/pwt/current/pwtag.min.js',
-    'https://js-sec.indexww.com/ht/p/189053.js',
-    'https://ap.lijit.com/www/delivery/fpi.js',
-    'https://contextual.media.net/dmedianet.js',
-    'https://native.sharethrough.com/assets/sfp.js',
-    'https://cdn.moatads.com/nucleus-loader/v4/moatApiFrame.js',
-    'https://s.tribalfusion.com/public/js/tribe.js',
-    'https://adserver.adtech.de/pubs/js3.0/adtech.js',
-    'https://www.googletagservices.com/tag/js/gpt.js',
-    'https://cdn2.undertone.com/js/underscore-1.6.0.js',
-    'https://p.revcontent.io/master.js',
-    'https://files.adform.net/crossdomain.xml',
-    'https://bidder.criteo.com/legacy/bids',
-    'https://tlx.3lift.com/header/prebid',
-    'https://exchange.postrelease.com/prebid',
-    'https://display.basis.net/b/prebid',
-  ];
-
-  const AD_SCRIPT_POOL = [
-    'https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js',
-    'https://cdn.adnxs.com/ast/ast.js',
-    'https://cdn.taboola.com/libtrc/impl.269-1-RELEASE.js',
-    'https://c.amazon-adsystem.com/aax2/apstag.js',
-    'https://static.criteo.net/js/ld/publishertag.prebid.117.js',
-    'https://widgets.outbrain.com/outbrain.js',
-    'https://fastlane.rubiconproject.com/a/api/fastlane.js',
-    'https://native.sharethrough.com/assets/sfp.js',
-    'https://www.googletagservices.com/tag/js/gpt.js',
-  ];
+  const _uid   = Math.random().toString(36).slice(2, 10);
+  const OV_ID  = '__nb_ov_'  + _uid;
+  const ST_ID  = '__nb_st_'  + _uid;
+  const AN_ID  = 'nb_an_'    + _uid;
 
   let cfg = {};
   let st = {
-    ready: false,
-    gated: false,
-    busy: false,
-    checks: 0,
-    ticker: null,
+    ready:       false,
+    gated:       false,
+    busy:        false,
+    checks:      0,
+    ticker:      null,
     watchTicker: null,
-    observer: null,
+    observer:    null,
   };
+  let _verifyAttempts = 0;
   let _keyFn = null;
   let _ctxFn = null;
 
-  function log(...a) {
-    if (cfg.debug) console.log('[NoBarricade]', ...a);
-  }
+  function log(...a) { if (cfg.debug) console.log('[NoBarricade]', ...a); }
 
   function merge(base, over) {
     const out = Object.assign({}, base);
@@ -141,57 +150,66 @@
     return out;
   }
 
-  function shuffle(arr) {
-    const a = arr.slice();
-    for (let i = a.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [a[i], a[j]] = [a[j], a[i]];
-    }
-    return a;
+  function pick(arr) {
+    return arr[Math.floor(Math.random() * arr.length)];
   }
 
-  function css() {
+  /* ─── CSS ───────────────────────────────────────────────────── */
+
+  function buildCSS() {
     const a = cfg.overlay.accentColor;
     return `
-#${OV_ID}{position:fixed!important;inset:0!important;width:100%!important;height:100%!important;
-z-index:2147483647!important;display:flex!important;align-items:center!important;
-justify-content:center!important;visibility:visible!important;opacity:1!important;
-pointer-events:all!important;background:rgba(7,10,22,.97)!important;
+#${OV_ID}{position:fixed!important;inset:0!important;width:100%!important;
+height:100%!important;z-index:2147483647!important;display:flex!important;
+align-items:center!important;justify-content:center!important;
+visibility:visible!important;opacity:1!important;pointer-events:all!important;
+background:rgba(7,10,22,.97)!important;
 backdrop-filter:blur(6px)!important;-webkit-backdrop-filter:blur(6px)!important;
 font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif!important;
-box-sizing:border-box!important;padding:16px!important;overflow-y:auto!important;margin:0!important;}
+box-sizing:border-box!important;padding:16px!important;
+overflow-y:auto!important;margin:0!important;}
 #${OV_ID} *{box-sizing:border-box!important;}
 #${OV_ID} .nb-card{background:#fff!important;border-radius:16px!important;
 padding:52px 44px!important;max-width:500px!important;width:100%!important;
-text-align:center!important;box-shadow:0 40px 100px rgba(0,0,0,.55)!important;position:relative!important;}
+text-align:center!important;box-shadow:0 40px 100px rgba(0,0,0,.55)!important;
+position:relative!important;}
 @media(max-width:540px){#${OV_ID} .nb-card{padding:36px 20px!important;border-radius:12px!important;}}
-#${OV_ID} .nb-logo-wrap{margin:0 auto 28px!important;display:block!important;}
-#${OV_ID} .nb-badge{display:inline-flex!important;align-items:center!important;gap:7px!important;
-padding:5px 13px!important;background:#fef3c7!important;border:1px solid #fcd34d!important;
-border-radius:99px!important;font-size:11px!important;font-weight:700!important;
-letter-spacing:.9px!important;text-transform:uppercase!important;color:#92400e!important;margin-bottom:22px!important;}
+#${OV_ID} .nb-logo{margin:0 auto 28px!important;display:block!important;}
+#${OV_ID} .nb-badge{display:inline-flex!important;align-items:center!important;
+gap:7px!important;padding:5px 13px!important;background:#fef3c7!important;
+border:1px solid #fcd34d!important;border-radius:99px!important;
+font-size:11px!important;font-weight:700!important;letter-spacing:.9px!important;
+text-transform:uppercase!important;color:#92400e!important;margin-bottom:22px!important;}
 #${OV_ID} .nb-dot{width:7px!important;height:7px!important;border-radius:50%!important;
-background:#d97706!important;flex-shrink:0!important;animation:nb_pulse 1.6s ease infinite!important;}
+background:#d97706!important;flex-shrink:0!important;
+animation:nb_pulse 1.6s ease infinite!important;}
 @keyframes nb_pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.35;transform:scale(.65)}}
-#${OV_ID} .nb-title{font-size:28px!important;font-weight:800!important;color:#0a0f1e!important;
-margin:0 0 14px!important;line-height:1.15!important;letter-spacing:-.6px!important;}
-#${OV_ID} .nb-msg{font-size:15px!important;color:#4b5563!important;line-height:1.7!important;margin:0 0 30px!important;}
-#${OV_ID} .nb-steps{text-align:left!important;background:#f9fafb!important;border:1px solid #e5e7eb!important;
-border-radius:10px!important;padding:22px!important;margin:0 0 28px!important;list-style:none!important;}
-#${OV_ID} .nb-steps li{display:flex!important;align-items:flex-start!important;gap:12px!important;
-font-size:14px!important;color:#374151!important;line-height:1.55!important;padding:0!important;margin:0!important;}
-#${OV_ID} .nb-steps li+li{margin-top:13px!important;padding-top:13px!important;border-top:1px solid #e5e7eb!important;}
-#${OV_ID} .nb-num{flex-shrink:0!important;width:24px!important;height:24px!important;border-radius:50%!important;
-background:${a}!important;color:#fff!important;font-size:11px!important;font-weight:700!important;
-display:flex!important;align-items:center!important;justify-content:center!important;}
-#${OV_ID} .nb-btn{display:block!important;width:100%!important;padding:16px 24px!important;border-radius:10px!important;
-background:${a}!important;color:#fff!important;font-size:15px!important;font-weight:700!important;
-border:none!important;cursor:pointer!important;appearance:none!important;outline:none!important;
-transition:opacity .15s!important;margin:0!important;}
+#${OV_ID} .nb-title{font-size:28px!important;font-weight:800!important;
+color:#0a0f1e!important;margin:0 0 14px!important;line-height:1.15!important;
+letter-spacing:-.6px!important;}
+#${OV_ID} .nb-msg{font-size:15px!important;color:#4b5563!important;
+line-height:1.7!important;margin:0 0 30px!important;}
+#${OV_ID} .nb-steps{text-align:left!important;background:#f9fafb!important;
+border:1px solid #e5e7eb!important;border-radius:10px!important;
+padding:22px!important;margin:0 0 28px!important;list-style:none!important;}
+#${OV_ID} .nb-steps li{display:flex!important;align-items:flex-start!important;
+gap:12px!important;font-size:14px!important;color:#374151!important;
+line-height:1.55!important;padding:0!important;margin:0!important;}
+#${OV_ID} .nb-steps li+li{margin-top:13px!important;padding-top:13px!important;
+border-top:1px solid #e5e7eb!important;}
+#${OV_ID} .nb-num{flex-shrink:0!important;width:24px!important;height:24px!important;
+border-radius:50%!important;background:${a}!important;color:#fff!important;
+font-size:11px!important;font-weight:700!important;display:flex!important;
+align-items:center!important;justify-content:center!important;}
+#${OV_ID} .nb-btn{display:block!important;width:100%!important;
+padding:16px 24px!important;border-radius:10px!important;background:${a}!important;
+color:#fff!important;font-size:15px!important;font-weight:700!important;
+border:none!important;cursor:pointer!important;appearance:none!important;
+outline:none!important;transition:opacity .15s!important;margin:0!important;}
 #${OV_ID} .nb-btn:hover{opacity:.87!important;}
 #${OV_ID} .nb-btn:disabled{opacity:.55!important;cursor:default!important;}
-#${OV_ID} .nb-err{font-size:13px!important;color:#dc2626!important;margin-top:12px!important;
-display:none!important;line-height:1.5!important;}
+#${OV_ID} .nb-err{font-size:13px!important;color:#dc2626!important;
+margin-top:12px!important;display:none!important;line-height:1.5!important;}
 #${OV_ID} .nb-err.on{display:block!important;}
 #${OV_ID} .nb-hr{height:1px!important;background:#e5e7eb!important;margin:26px 0!important;}
 #${OV_ID} .nb-foot{font-size:12px!important;color:#9ca3af!important;}
@@ -205,7 +223,7 @@ display:none!important;line-height:1.5!important;}
 
   function logoSVG() {
     const a = cfg.overlay.accentColor;
-    return `<svg width="60" height="60" viewBox="0 0 60 60" fill="none" xmlns="http://www.w3.org/2000/svg">
+    return `<svg width="60" height="60" viewBox="0 0 60 60" fill="none" xmlns="http://www.w3.org/2000/svg" class="nb-logo">
 <rect width="60" height="60" rx="15" fill="#0a0f1e"/>
 <path d="M30 11L13 19.4V30C13 39.5 20.7 48.3 30 51C39.3 48.3 47 39.5 47 30V19.4L30 11Z" fill="${a}" opacity=".18"/>
 <path d="M30 13.5L15 21.2V30C15 38.8 22 47.1 30 49.5C38 47.1 45 38.8 45 30V21.2L30 13.5Z" stroke="${a}" stroke-width="1.6" fill="none"/>
@@ -229,7 +247,7 @@ display:none!important;line-height:1.5!important;}
     el.setAttribute('role', 'dialog');
     el.setAttribute('aria-modal', 'true');
     el.innerHTML = `<div class="nb-card">
-      <div class="nb-logo-wrap">${ov.logo
+      <div class="nb-logo">${ov.logo
         ? `<img src="${ov.logo}" alt="${ov.brand}" style="height:60px;width:auto;">`
         : logoSVG()}</div>
       <div class="nb-badge"><span class="nb-dot"></span>Ad Blocker Detected</div>
@@ -237,23 +255,26 @@ display:none!important;line-height:1.5!important;}
       <p class="nb-msg">${ov.message}</p>
       ${steps}
       <button class="nb-btn" id="${OV_ID}_btn">${ov.buttonText}</button>
-      <p class="nb-err" id="${OV_ID}_err">Ad blocker still detected. Please fully disable it for this page.</p>
+      <p class="nb-err" id="${OV_ID}_err"></p>
       <div class="nb-hr"></div>
       <p class="nb-foot">Protected by <a href="https://hexadecinull.github.io/nobarricade" target="_blank" rel="noopener">${ov.brand}</a></p>
     </div>`;
     return el;
   }
 
-  const FORCE_STYLE = 'position:fixed!important;inset:0!important;width:100%!important;' +
+  const FORCE_STYLE =
+    'position:fixed!important;inset:0!important;width:100%!important;' +
     'height:100%!important;z-index:2147483647!important;display:flex!important;' +
     'visibility:visible!important;opacity:1!important;pointer-events:all!important;';
+
+  /* ─── Gate ───────────────────────────────────────────────────── */
 
   function injectStyle() {
     let el = document.getElementById(ST_ID);
     if (el && el.parentNode) el.parentNode.removeChild(el);
     el = document.createElement('style');
     el.id = ST_ID;
-    el.textContent = css();
+    el.textContent = buildCSS();
     (document.head || document.documentElement).appendChild(el);
   }
 
@@ -288,6 +309,15 @@ display:none!important;line-height:1.5!important;}
     watchDOM();
     lockInput();
     if (cfg.protect.watchDevTools) startWatchDevTools();
+
+    /*
+     * CRITICAL: Stop the periodic interval once the gate is showing.
+     * The gate is now exclusively user-controlled via the verify button.
+     * Without this, the interval keeps re-running detection, gets an
+     * inconsistent result on any given tick, and auto-hides the gate —
+     * then the next tick detects again and shows it. That is the flicker.
+     */
+    if (st.ticker) { clearInterval(st.ticker); st.ticker = null; }
   }
 
   function hideGate() {
@@ -307,6 +337,15 @@ display:none!important;line-height:1.5!important;}
     _verifyAttempts = 0;
     unlockInput();
     if (st.watchTicker) { clearInterval(st.watchTicker); st.watchTicker = null; }
+
+    /*
+     * Restart the background interval now that the gate is gone,
+     * so that if the user re-enables their ad blocker mid-session
+     * we can catch it again.
+     */
+    if (cfg.checkInterval > 0 && !st.ticker) {
+      st.ticker = setInterval(runCheck, cfg.checkInterval);
+    }
   }
 
   function repair() {
@@ -341,7 +380,7 @@ display:none!important;line-height:1.5!important;}
         }
         if (m.type === 'attributes') {
           const id = m.target.id;
-          if (id === OV_ID || id === ST_ID) { dirty = true; break; }
+          if (id === OV_ID || id === ST_ID) { dirty = true; }
         }
         if (dirty) break;
       }
@@ -359,9 +398,10 @@ display:none!important;line-height:1.5!important;}
     if (st.watchTicker) clearInterval(st.watchTicker);
     st.watchTicker = setInterval(function () {
       if (!st.gated) return;
-      if (window.outerWidth - window.innerWidth > 160 || window.outerHeight - window.innerHeight > 160) {
-        repair();
-      }
+      if (
+        window.outerWidth  - window.innerWidth  > 160 ||
+        window.outerHeight - window.innerHeight > 160
+      ) repair();
     }, cfg.protect.watchInterval || 750);
   }
 
@@ -373,7 +413,7 @@ display:none!important;line-height:1.5!important;}
         if (
           e.key === 'F12' ||
           (cs && e.shiftKey && 'IJCKMijckm'.includes(e.key)) ||
-          (cs && !e.shiftKey && 'uUsSpPaA'.includes(e.key))
+          (cs && !e.shiftKey && 'uUsSpP'.includes(e.key))
         ) {
           e.preventDefault();
           e.stopImmediatePropagation();
@@ -394,17 +434,14 @@ display:none!important;line-height:1.5!important;}
     if (_ctxFn) { document.removeEventListener('contextmenu', _ctxFn, true); _ctxFn = null; }
   }
 
-  let _verifyAttempts = 0;
-
   function onVerifyClick() {
     const btn = document.getElementById(OV_ID + '_btn');
     const err = document.getElementById(OV_ID + '_err');
     if (btn) { btn.disabled = true; btn.textContent = cfg.overlay.buttonVerifyText; }
-    if (err) err.classList.remove('on');
+    if (err) { err.textContent = ''; err.classList.remove('on'); }
 
     detect(function (found) {
       if (!found) {
-        _verifyAttempts = 0;
         hideGate();
         if (typeof cfg.onCleared === 'function') try { cfg.onCleared(); } catch (_) {}
       } else {
@@ -412,8 +449,8 @@ display:none!important;line-height:1.5!important;}
         if (btn) { btn.disabled = false; btn.textContent = cfg.overlay.buttonText; }
         if (err) {
           err.textContent = _verifyAttempts >= 2
-            ? 'Ad blocker still detected. Some ad blockers require a full page reload — please refresh and try again.'
-            : 'Ad blocker still detected. Please fully disable it for this page, then try again.';
+            ? 'Ad blocker still detected. Some blockers require a full page reload after being disabled — please refresh and try again.'
+            : 'Ad blocker still detected. Please fully disable it for this site, then try again.';
           err.classList.add('on');
         }
         const card = document.querySelector('#' + OV_ID + ' .nb-card');
@@ -426,14 +463,21 @@ display:none!important;line-height:1.5!important;}
     });
   }
 
+  /* ─── Detection methods ──────────────────────────────────────── */
+
+  /*
+   * Bait element: inject a div with ad class names inside a zero-size
+   * hidden wrapper (NOT position:fixed — fixed elements always have
+   * offsetParent === null in every browser, causing false positives).
+   * Ad blockers hide or collapse the inner element; we measure it.
+   */
   function detectBait(cb) {
     const wrap = document.createElement('div');
     wrap.setAttribute('style',
-      'position:absolute;top:0;left:0;width:0;height:0;overflow:hidden;' +
-      'visibility:hidden;pointer-events:none;');
+      'position:absolute;top:0;left:0;width:0;height:0;' +
+      'overflow:hidden;visibility:hidden;pointer-events:none;');
 
     const el = document.createElement('div');
-    el.id = BT_ID;
     el.className = BAIT_CLASSES;
     el.setAttribute('style', 'width:300px;height:250px;display:block;');
 
@@ -444,248 +488,249 @@ display:none!important;line-height:1.5!important;}
       let found = false;
       try {
         const cs = window.getComputedStyle(el);
-        const h = el.offsetHeight;
-        const w = el.offsetWidth;
         found =
-          h === 0 ||
-          w === 0 ||
-          cs.display === 'none' ||
-          cs.visibility === 'hidden' ||
-          cs.opacity === '0' ||
+          el.offsetHeight === 0 ||
+          el.offsetWidth  === 0 ||
+          cs.display      === 'none' ||
+          cs.visibility   === 'hidden' ||
+          cs.opacity      === '0' ||
           parseFloat(cs.maxHeight || '1') === 0 ||
-          parseFloat(cs.maxWidth || '1') === 0;
+          parseFloat(cs.maxWidth  || '1') === 0;
       } catch (_) {}
       try { if (wrap.parentNode) wrap.parentNode.removeChild(wrap); } catch (_) {}
+      log('bait:', found);
       cb(found);
     }, cfg.detectionTimeout);
   }
 
+  /*
+   * Fetch probe: HEAD request to a canonical ad URL (no cache-busting params —
+   * ad servers validate their own query strings and reject unknowns, causing
+   * onerror without any ad blocker active).
+   *
+   * Before concluding "blocked", we run a sanity check against a neutral CDN
+   * to rule out the user simply being offline or behind a captive portal.
+   */
   function detectFetch(cb) {
     if (typeof fetch === 'undefined') { cb(false); return; }
 
-    const urls = shuffle(AD_FETCH_POOL).slice(0, 4);
-    let failed = 0;
-    let exited = false;
-    const timers = [];
+    const adUrl  = pick(FETCH_URLS);
+    const opts   = { method: 'HEAD', mode: 'no-cors', cache: 'no-store' };
+    let   exited = false;
 
-    function onSuccess() {
-      if (exited) return;
-      exited = true;
-      timers.forEach(clearTimeout);
-      cb(false);
-    }
+    function done(v) { if (!exited) { exited = true; log('fetch:', v); cb(v); } }
 
-    function onFail() {
-      if (exited) return;
-      failed++;
-      if (failed === urls.length) { exited = true; timers.forEach(clearTimeout); cb(true); }
-    }
+    const timer = setTimeout(function () { done(true); }, 6000);
 
-    urls.forEach(function (url) {
-      const t = setTimeout(function () { onFail(); }, 5500);
-      timers.push(t);
-      fetch(url + '?_nb=' + Date.now(), { method: 'HEAD', mode: 'no-cors', cache: 'no-store' })
-        .then(function () { clearTimeout(t); onSuccess(); })
-        .catch(function () { clearTimeout(t); onFail(); });
-    });
+    fetch(adUrl, opts)
+      .then(function () { clearTimeout(timer); done(false); })
+      .catch(function () {
+        clearTimeout(timer);
+        /*
+         * Ad request failed — but verify it's not just the network being down.
+         * Fetch the sanity URL; if that also fails, the user is offline and we
+         * should not gate them.
+         */
+        const sanityTimer = setTimeout(function () { done(true); }, 4000);
+        fetch(SANITY_URL, opts)
+          .then(function ()  { clearTimeout(sanityTimer); done(true); })
+          .catch(function () { clearTimeout(sanityTimer); done(false); });
+      });
   }
 
+  /*
+   * Script probe: inject a <script> pointing to the canonical ad URL.
+   * Ad blockers cancel the request and fire onerror.
+   * NO cache-busting params — see detectFetch note above.
+   */
   function detectScript(cb) {
-    const urls = shuffle(AD_SCRIPT_POOL).slice(0, 2);
-    let failed = 0;
+    const id = '__nbsc_' + _uid;
+    let   existing = document.getElementById(id);
+    if (existing && existing.parentNode) existing.parentNode.removeChild(existing);
+
+    const sc  = document.createElement('script');
+    sc.id     = id;
+    sc.async  = true;
+    sc.src    = SCRIPT_URL;
     let exited = false;
-    const timers = [];
 
-    function onSuccess() {
-      if (exited) return;
-      exited = true;
-      timers.forEach(clearTimeout);
-      cb(false);
+    function cleanup() {
+      const s = document.getElementById(id);
+      if (s && s.parentNode) s.parentNode.removeChild(s);
     }
 
-    function onFail() {
-      if (exited) return;
-      failed++;
-      if (failed === urls.length) { exited = true; timers.forEach(clearTimeout); cb(true); }
+    function done(v) {
+      if (!exited) { exited = true; clearTimeout(timer); cleanup(); log('script:', v); cb(v); }
     }
 
-    urls.forEach(function (url) {
-      const id = '__nbsc_' + Math.random().toString(36).slice(2, 8);
-      const sc = document.createElement('script');
-      sc.id = id;
-      sc.async = true;
-      sc.src = url + '?_nb=' + Date.now();
-
-      function cleanup() {
-        const s = document.getElementById(id);
-        if (s && s.parentNode) s.parentNode.removeChild(s);
-      }
-
-      const t = setTimeout(function () { cleanup(); onFail(); }, 7000);
-      timers.push(t);
-      sc.onload = function () { clearTimeout(t); cleanup(); onSuccess(); };
-      sc.onerror = function () { clearTimeout(t); cleanup(); onFail(); };
-      (document.head || document.documentElement).appendChild(sc);
-    });
+    const timer = setTimeout(function () { done(true); }, 8000);
+    sc.onload  = function () { done(false); };
+    sc.onerror = function () { done(true);  };
+    (document.head || document.documentElement).appendChild(sc);
   }
 
+  /*
+   * CSS animation bait: attach a no-op animation to an element with ad class
+   * names. If the element is visible, animationstart fires immediately.
+   * Ad blockers suppress it — we detect the absence of that event.
+   * Same wrapper approach as detectBait (no fixed positioning).
+   */
   function detectCSS(cb) {
     const styleEl = document.createElement('style');
     styleEl.textContent =
-      '.nb-css-bait-' + _uid + '{animation:' + AN_ID + ' 0.001s!important;}';
+      '.nb_cb_' + _uid + '{animation:' + AN_ID + ' 0.001s!important;}' +
+      '@keyframes ' + AN_ID + '{from{opacity:.99}to{opacity:1}}';
 
     const wrap = document.createElement('div');
     wrap.setAttribute('style',
-      'position:absolute;top:0;left:0;width:0;height:0;overflow:hidden;visibility:hidden;');
+      'position:absolute;top:0;left:0;width:0;height:0;' +
+      'overflow:hidden;visibility:hidden;pointer-events:none;');
 
-    const baitEl = document.createElement('div');
-    baitEl.className = [
-      'nb-css-bait-' + _uid,
-      'ad-unit', 'adsbygoogle', 'pub_300x250', 'adsbox', 'banner-ads',
-    ].join(' ');
-    baitEl.setAttribute('style', 'width:300px;height:250px;display:block;');
+    const el = document.createElement('div');
+    el.className = 'nb_cb_' + _uid + ' adsbygoogle pub_300x250 adsbox banner-ads ad-unit';
+    el.setAttribute('style', 'width:300px;height:250px;display:block;');
+    wrap.appendChild(el);
 
-    wrap.appendChild(baitEl);
     let done = false;
 
     function cleanup() {
       if (styleEl.parentNode) styleEl.parentNode.removeChild(styleEl);
-      if (wrap.parentNode) wrap.parentNode.removeChild(wrap);
+      if (wrap.parentNode)    wrap.parentNode.removeChild(wrap);
     }
 
     const timer = setTimeout(function () {
-      if (!done) { done = true; cleanup(); cb(true); }
-    }, cfg.detectionTimeout + 400);
+      if (!done) { done = true; cleanup(); log('css: true (timeout)'); cb(true); }
+    }, cfg.detectionTimeout + 500);
 
-    baitEl.addEventListener('animationstart', function () {
-      if (!done) { done = true; clearTimeout(timer); cleanup(); cb(false); }
+    el.addEventListener('animationstart', function () {
+      if (!done) {
+        done = true;
+        clearTimeout(timer);
+        cleanup();
+        log('css: false (animation fired)');
+        cb(false);
+      }
     }, { once: true });
 
     (document.head || document.documentElement).appendChild(styleEl);
     (document.body || document.documentElement).appendChild(wrap);
   }
 
-  function detectProperty(cb) {
-    const found =
-      (typeof window.google_ad_status !== 'undefined' && window.google_ad_status !== 'done') ||
-      (typeof window.googletag !== 'undefined' &&
-        typeof window.googletag.pubadsReady !== 'undefined' &&
-        !window.googletag.pubadsReady) ||
-      (typeof window._taboola !== 'undefined' && !Array.isArray(window._taboola)) ||
-      (typeof window.apntag !== 'undefined' && typeof window.apntag.requests === 'undefined') ||
-      (typeof window.criteo_q !== 'undefined' && typeof window.criteo_q.push !== 'function');
-    cb(found);
-  }
-
-  function detectBrave(cb) {
-    if (navigator.brave && typeof navigator.brave.isBrave === 'function') {
-      navigator.brave.isBrave()
-        .then(function (v) { cb(v); })
-        .catch(function () { cb(false); });
-    } else {
-      cb(false);
-    }
-  }
+  /* ─── Orchestration ──────────────────────────────────────────── */
 
   function detect(cb) {
-    const methods = cfg.methods || DEFAULTS.methods;
-    const threshold = cfg.sensitivity || 1;
-    const results = [];
-    let pending = 0;
-    let exited = false;
+    const methods   = cfg.methods || DEFAULTS.methods;
+    const threshold = Math.max(1, cfg.sensitivity || 1);
+    const results   = [];
+    let   pending   = 0;
+    let   exited    = false;
 
     function tick(v) {
       if (exited) return;
       results.push(v);
-      const hits = results.filter(Boolean).length;
+
+      const hits      = results.filter(Boolean).length;
       const remaining = pending - results.length;
 
       if (hits >= threshold) {
         exited = true;
-        log('Detected (' + hits + '/' + pending + ' hit):', results);
+        log('detect → BLOCKED (' + hits + '+/' + pending + ')');
         return cb(true);
       }
 
       if (hits + remaining < threshold) {
         exited = true;
-        log('Cleared (' + hits + '/' + pending + ' hit):', results);
+        log('detect → CLEAR (' + hits + '/' + pending + ')');
         return cb(false);
       }
 
       if (results.length === pending) {
         exited = true;
-        log('Final (' + hits + '/' + pending + '):', results);
+        log('detect → CLEAR final (' + hits + '/' + pending + ')');
         cb(false);
       }
     }
 
-    if (methods.includes('bait'))     { pending++; detectBait(tick); }
-    if (methods.includes('fetch'))    { pending++; detectFetch(tick); }
-    if (methods.includes('script'))   { pending++; detectScript(tick); }
-    if (methods.includes('css'))      { pending++; detectCSS(tick); }
-    if (methods.includes('property')) { pending++; detectProperty(tick); }
-    if (methods.includes('brave'))    { pending++; detectBrave(tick); }
+    if (methods.includes('bait'))               { pending++; detectBait(tick);   }
+    if (methods.includes('fetch') &&
+        typeof fetch !== 'undefined')            { pending++; detectFetch(tick);  }
+    if (methods.includes('script'))              { pending++; detectScript(tick); }
+    if (methods.includes('css'))                 { pending++; detectCSS(tick);   }
 
     if (pending === 0) cb(false);
   }
 
+  /*
+   * runCheck: only fires when the gate is NOT showing.
+   * Once gated, the interval is stopped inside showGate().
+   * This prevents the auto-show/auto-hide oscillation (flicker).
+   */
   function runCheck() {
-    if (st.busy) return;
+    if (st.busy || st.gated) return;
     st.busy = true;
+
     detect(function (found) {
       st.busy = false;
       st.checks++;
-      if (found && !st.gated) {
-        log('Ad blocker detected — gating');
+
+      if (found) {
         showGate();
         if (typeof cfg.onDetected === 'function') try { cfg.onDetected(); } catch (_) {}
-      } else if (!found && st.gated) {
-        log('Cleared — releasing gate');
-        hideGate();
-        if (typeof cfg.onCleared === 'function') try { cfg.onCleared(); } catch (_) {}
       }
+      /*
+       * Deliberately no `else if (!found && st.gated) hideGate()` here.
+       * Auto-hiding on a periodic check is what causes the flicker loop.
+       * The gate is only ever lifted by the verify button (onVerifyClick).
+       */
     });
   }
 
+  /* ─── Public API ─────────────────────────────────────────────── */
+
   function init(userCfg) {
-    if (st.ready) { log('Already initialized'); return NoBarricade; }
+    if (st.ready) { log('Already initialized — call destroy() first'); return NoBarricade; }
     cfg = merge(DEFAULTS, userCfg || {});
+
     const go = function () {
       runCheck();
-      if (cfg.checkInterval > 0) st.ticker = setInterval(runCheck, cfg.checkInterval);
+      if (cfg.checkInterval > 0) {
+        st.ticker = setInterval(runCheck, cfg.checkInterval);
+      }
       st.ready = true;
       log('v' + VERSION + ' initialized');
     };
+
     document.readyState === 'loading'
       ? document.addEventListener('DOMContentLoaded', go, { once: true })
       : go();
+
     return NoBarricade;
   }
 
   function destroy() {
-    if (st.ticker) { clearInterval(st.ticker); st.ticker = null; }
+    if (st.ticker)      { clearInterval(st.ticker);      st.ticker      = null; }
     if (st.watchTicker) { clearInterval(st.watchTicker); st.watchTicker = null; }
-    if (st.observer) { st.observer.disconnect(); st.observer = null; }
+    if (st.observer)    { st.observer.disconnect();       st.observer    = null; }
     hideGate();
     unlockInput();
-    st.ready = false;
-    st.gated = false;
-    st.busy = false;
+    st.ready  = false;
+    st.gated  = false;
+    st.busy   = false;
     st.checks = 0;
     log('Destroyed');
     return NoBarricade;
   }
 
   const NoBarricade = {
-    version: VERSION,
+    version:        VERSION,
     init,
     destroy,
     detect,
     isGated()       { return st.gated; },
     isInitialized() { return st.ready; },
-    check()         { runCheck(); return this; },
+    check()         { if (!st.gated) runCheck(); return this; },
     forceGate()     { if (!st.gated) showGate(); return this; },
-    releaseGate()   { if (st.gated) hideGate(); return this; },
+    releaseGate()   { if (st.gated)  hideGate(); return this; },
   };
 
   return NoBarricade;
