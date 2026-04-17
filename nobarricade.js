@@ -20,8 +20,8 @@
 
   const DEFAULTS = {
     checkInterval: 3000,
-    detectionTimeout: 850,
-    sensitivity: 1,
+    detectionTimeout: 1100,
+    sensitivity: 2,
     methods: ['bait', 'fetch', 'script', 'css', 'property'],
     overlay: {
       title: 'Ad Blocker Detected',
@@ -304,6 +304,7 @@ display:none!important;line-height:1.5!important;}
     }
 
     st.gated = false;
+    _verifyAttempts = 0;
     unlockInput();
     if (st.watchTicker) { clearInterval(st.watchTicker); st.watchTicker = null; }
   }
@@ -393,6 +394,8 @@ display:none!important;line-height:1.5!important;}
     if (_ctxFn) { document.removeEventListener('contextmenu', _ctxFn, true); _ctxFn = null; }
   }
 
+  let _verifyAttempts = 0;
+
   function onVerifyClick() {
     const btn = document.getElementById(OV_ID + '_btn');
     const err = document.getElementById(OV_ID + '_err');
@@ -401,11 +404,18 @@ display:none!important;line-height:1.5!important;}
 
     detect(function (found) {
       if (!found) {
+        _verifyAttempts = 0;
         hideGate();
         if (typeof cfg.onCleared === 'function') try { cfg.onCleared(); } catch (_) {}
       } else {
+        _verifyAttempts++;
         if (btn) { btn.disabled = false; btn.textContent = cfg.overlay.buttonText; }
-        if (err) err.classList.add('on');
+        if (err) {
+          err.textContent = _verifyAttempts >= 2
+            ? 'Ad blocker still detected. Some ad blockers require a full page reload — please refresh and try again.'
+            : 'Ad blocker still detected. Please fully disable it for this page, then try again.';
+          err.classList.add('on');
+        }
         const card = document.querySelector('#' + OV_ID + ' .nb-card');
         if (card) {
           card.classList.remove('nb-shake');
@@ -417,26 +427,35 @@ display:none!important;line-height:1.5!important;}
   }
 
   function detectBait(cb) {
+    const wrap = document.createElement('div');
+    wrap.setAttribute('style',
+      'position:absolute;top:0;left:0;width:0;height:0;overflow:hidden;' +
+      'visibility:hidden;pointer-events:none;');
+
     const el = document.createElement('div');
     el.id = BT_ID;
     el.className = BAIT_CLASSES;
-    el.setAttribute('style', 'position:fixed;top:-9999px;left:-9999px;width:300px;height:250px;');
-    (document.body || document.documentElement).appendChild(el);
+    el.setAttribute('style', 'width:300px;height:250px;display:block;');
+
+    wrap.appendChild(el);
+    (document.body || document.documentElement).appendChild(wrap);
 
     setTimeout(function () {
       let found = false;
       try {
         const cs = window.getComputedStyle(el);
+        const h = el.offsetHeight;
+        const w = el.offsetWidth;
         found =
-          el.offsetHeight === 0 ||
-          el.offsetWidth === 0 ||
-          el.offsetParent === null ||
+          h === 0 ||
+          w === 0 ||
           cs.display === 'none' ||
           cs.visibility === 'hidden' ||
           cs.opacity === '0' ||
-          parseFloat(cs.maxHeight || '1') === 0;
+          parseFloat(cs.maxHeight || '1') === 0 ||
+          parseFloat(cs.maxWidth || '1') === 0;
       } catch (_) {}
-      try { if (el.parentNode) el.parentNode.removeChild(el); } catch (_) {}
+      try { if (wrap.parentNode) wrap.parentNode.removeChild(wrap); } catch (_) {}
       cb(found);
     }, cfg.detectionTimeout);
   }
@@ -447,21 +466,27 @@ display:none!important;line-height:1.5!important;}
     const urls = shuffle(AD_FETCH_POOL).slice(0, 4);
     let failed = 0;
     let exited = false;
+    const timers = [];
 
     function onSuccess() {
-      if (!exited) { exited = true; cb(false); }
+      if (exited) return;
+      exited = true;
+      timers.forEach(clearTimeout);
+      cb(false);
     }
 
     function onFail() {
+      if (exited) return;
       failed++;
-      if (!exited && failed === urls.length) { exited = true; cb(true); }
+      if (failed === urls.length) { exited = true; timers.forEach(clearTimeout); cb(true); }
     }
 
     urls.forEach(function (url) {
-      const timer = setTimeout(function () { onFail(); }, 5500);
+      const t = setTimeout(function () { onFail(); }, 5500);
+      timers.push(t);
       fetch(url + '?_nb=' + Date.now(), { method: 'HEAD', mode: 'no-cors', cache: 'no-store' })
-        .then(function () { clearTimeout(timer); onSuccess(); })
-        .catch(function () { clearTimeout(timer); onFail(); });
+        .then(function () { clearTimeout(t); onSuccess(); })
+        .catch(function () { clearTimeout(t); onFail(); });
     });
   }
 
@@ -469,14 +494,19 @@ display:none!important;line-height:1.5!important;}
     const urls = shuffle(AD_SCRIPT_POOL).slice(0, 2);
     let failed = 0;
     let exited = false;
+    const timers = [];
 
     function onSuccess() {
-      if (!exited) { exited = true; cb(false); }
+      if (exited) return;
+      exited = true;
+      timers.forEach(clearTimeout);
+      cb(false);
     }
 
     function onFail() {
+      if (exited) return;
       failed++;
-      if (!exited && failed === urls.length) { exited = true; cb(true); }
+      if (failed === urls.length) { exited = true; timers.forEach(clearTimeout); cb(true); }
     }
 
     urls.forEach(function (url) {
@@ -491,9 +521,10 @@ display:none!important;line-height:1.5!important;}
         if (s && s.parentNode) s.parentNode.removeChild(s);
       }
 
-      const timer = setTimeout(function () { cleanup(); onFail(); }, 7000);
-      sc.onload = function () { clearTimeout(timer); cleanup(); onSuccess(); };
-      sc.onerror = function () { clearTimeout(timer); cleanup(); onFail(); };
+      const t = setTimeout(function () { cleanup(); onFail(); }, 7000);
+      timers.push(t);
+      sc.onload = function () { clearTimeout(t); cleanup(); onSuccess(); };
+      sc.onerror = function () { clearTimeout(t); cleanup(); onFail(); };
       (document.head || document.documentElement).appendChild(sc);
     });
   }
@@ -503,39 +534,35 @@ display:none!important;line-height:1.5!important;}
     styleEl.textContent =
       '.nb-css-bait-' + _uid + '{animation:' + AN_ID + ' 0.001s!important;}';
 
+    const wrap = document.createElement('div');
+    wrap.setAttribute('style',
+      'position:absolute;top:0;left:0;width:0;height:0;overflow:hidden;visibility:hidden;');
+
     const baitEl = document.createElement('div');
     baitEl.className = [
       'nb-css-bait-' + _uid,
       'ad-unit', 'adsbygoogle', 'pub_300x250', 'adsbox', 'banner-ads',
     ].join(' ');
-    baitEl.setAttribute('style', 'position:fixed;top:-9999px;left:-9999px;width:300px;height:250px;');
+    baitEl.setAttribute('style', 'width:300px;height:250px;display:block;');
 
+    wrap.appendChild(baitEl);
     let done = false;
 
     function cleanup() {
       if (styleEl.parentNode) styleEl.parentNode.removeChild(styleEl);
-      if (baitEl.parentNode) baitEl.parentNode.removeChild(baitEl);
+      if (wrap.parentNode) wrap.parentNode.removeChild(wrap);
     }
 
     const timer = setTimeout(function () {
-      if (!done) {
-        done = true;
-        cleanup();
-        cb(true);
-      }
-    }, cfg.detectionTimeout + 300);
+      if (!done) { done = true; cleanup(); cb(true); }
+    }, cfg.detectionTimeout + 400);
 
     baitEl.addEventListener('animationstart', function () {
-      if (!done) {
-        done = true;
-        clearTimeout(timer);
-        cleanup();
-        cb(false);
-      }
+      if (!done) { done = true; clearTimeout(timer); cleanup(); cb(false); }
     }, { once: true });
 
     (document.head || document.documentElement).appendChild(styleEl);
-    (document.body || document.documentElement).appendChild(baitEl);
+    (document.body || document.documentElement).appendChild(wrap);
   }
 
   function detectProperty(cb) {
